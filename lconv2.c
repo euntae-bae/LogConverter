@@ -5,7 +5,7 @@
 #include <math.h>
 #define BUF_SIZE 256
 #define FOUT1_NAME	"sensor-norm.txt"
-#define FOUT2_NAME	"sensor-intg.txt"
+#define FOUT2_NAME	"sensor-vel.txt"
 
 double getNorm(double x, double y, double z) {
 	return sqrt((x * x) + (y * y) + (z * z));
@@ -93,5 +93,6 @@ int main(int argc, char *argv[])
 	for (i = 0; i < 3; i++)
 		fclose(fin[i]);
 	fclose(fout1);
+	fclose(fout2);
 	return 0;
 }
