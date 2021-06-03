@@ -13,12 +13,12 @@ int main(int argc, char *argv[])
     int i;
 
     printf("## lconv front-end ##\n");
-    if (argc == 2) {
+    if (argc == 2 || argc == 3) {
         sprintf(cmd, "mkdir %s", argv[1]);
         system(cmd);
     }
-    else if (argc > 2) {
-        printf("usage: %s [dest-directory]\n", argv[0]);
+    else {
+        printf("usage: %s [dest-directory [window_size]]\n", argv[0]);
         return -1;
     }
     
@@ -46,9 +46,14 @@ int main(int argc, char *argv[])
     }
     //strcpy(cmd, "./lconv2 ");
     //strcat(cmd, argv[1]);
-    system("./lconv2");
-    
-    if (argc == 2) {
+    if (argc == 3) {
+        sprintf(cmd, "./lconv3 %s", argv[2]);
+    }
+    else
+        sprintf(cmd, "./lconv3");
+    system(cmd);
+
+    if (argc >= 2) {
         sprintf(cmd, "mv *.txt ./%s", argv[1]);
         system(cmd);
     }
