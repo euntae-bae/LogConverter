@@ -1,3 +1,6 @@
+/* lconv1: 축별 가속도 로그를 시간과 가속도 형식으로 변환하는 프로그램 
+ * 입력: 축별 가속도 로그(sensor-ax.txt, sensor-ay.txt, sensor-az.txt 등)
+ * 출력: 해당 축의 시간별 가속도로 변환된 로그 파일(sensor-ax-out.txt, sensor-ay-out.txt, sensor-az.out.txt 등) */
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
