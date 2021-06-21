@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 	double anorm, vnorm;
 	double vxAcc, vyAcc, vzAcc; // 속도 누적 (전체 평균 속도 계산용)
 
-	printf("## log converter version 3b ##\n");
+	printf("## log converter version 3c ##\n");
 	strcpy(finName[0], "sensor-ax-out.txt");
 	strcpy(finName[1], "sensor-ay-out.txt");
 	strcpy(finName[2], "sensor-az-out.txt");
