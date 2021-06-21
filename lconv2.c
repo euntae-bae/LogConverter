@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 		vy += ay * constTerm;
 		vz += az * constTerm;
 		vnorm = getNorm(vx, vy, vz);
-		fprintf(fout[1], "%.2lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vz / timeCnt, vy / timeCnt, vz / timeCnt, vnorm / timeCnt);
+		fprintf(fout[1], "%.2lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vx / timeCnt, vy / timeCnt, vz / timeCnt, vnorm / timeCnt);
 		fprintf(fout[2], "%.2lf\t%lf\n", timeCnt, vnorm / timeCnt);
 	}
 

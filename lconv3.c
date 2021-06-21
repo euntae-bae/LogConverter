@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 			vz += az * constTerm;
 		}
 		vnorm = getNorm(vx, vy, vz);
-		fprintf(fout[1], "%.2lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vz / deltaTime, vy / deltaTime, vz / deltaTime, vnorm / deltaTime); // 축별 속도 및 속도의 norm
+		fprintf(fout[1], "%.2lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vx / deltaTime, vy / deltaTime, vz / deltaTime, vnorm / deltaTime); // 축별 속도 및 속도의 norm
 		fprintf(fout[2], "%.2lf\t%lf\n", timeCnt, vnorm / deltaTime); // 속도의 norm
 	}
 
