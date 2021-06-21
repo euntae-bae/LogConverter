@@ -13,5 +13,4 @@ lconv: lconv.c
 all: lconv1 lconv3 lconv
 
 clean:
-	rm lconv lconv1 lconv2 lconv3 
-	rm *.o *.exe
+	rm *.exe

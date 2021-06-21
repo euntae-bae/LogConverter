@@ -2,10 +2,10 @@
  * 입력: time-window
  * 입력 파일: lconv1의 x, y, z축 입력에 대한 각각의 출력파일, 즉 sensor-ax-out.txt, sensor-ay-out.txt, sensor-az.out.txt
  * 출력: 전체 평균 속도 (m/s)
- * 출력 파일: 3개
- * (1). time-window 크기에 따른 vx, vy, vz 산출 (sensor-vel.txt)
- * (2). time-window 크기에 따른 순간 가속도 스칼라 (sensor-norm.txt)
- * (3). time-window 크기에 따른 순간 속도의 norm (sensor-vnorm.txt)
+ * 출력 파일: 1개 (sensor-out.txt)
+ * (1). time-window 크기에 따른 vx, vy, vz 산출 
+ * (2). time-window 크기에 따른 순간 가속도 스칼라
+ * (3). time-window 크기에 따른 순간 속도의 norm
  * 기타: time-window 크기가 1인 경우에는 lconv2와 출력 같음
  */
 
@@ -17,7 +17,6 @@
 
 #define BUF_SIZE 256
 #define DEFAULT_WINDOW_SIZE	5 // 0.1초 단위
-#define NUM_OF_OUTPUT_FILES 3
 
 double getNorm(double x, double y, double z) {
 	return sqrt((x * x) + (y * y) + (z * z));
@@ -26,11 +25,11 @@ double getNorm(double x, double y, double z) {
 int main(int argc, char *argv[])
 {
 	char finName[3][BUF_SIZE];
-	const char *foutName[NUM_OF_OUTPUT_FILES] = { "sensor-vel.txt", "sensor-norm.txt", "sensor-vnorm.txt" };
+	const char *foutName = "sensor-out.txt";
 	int winSize = DEFAULT_WINDOW_SIZE;
 
 	FILE *fin[3] = { NULL, };
-	FILE *fout[5] = { NULL, };
+	FILE *fout = NULL;
 
 	int i;
 	double timeCnt = 0.0;
@@ -66,19 +65,15 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
-	for (i = 0; i < NUM_OF_OUTPUT_FILES; i++) {
-		fout[i] = fopen(foutName[i], "wt");
-		if (!fout[i]) {
-			fprintf(stderr, "could not open file: %s\n", foutName[i]);
-			return -1;
-		}
+
+	fout = fopen(foutName, "wt");
+	if (!fout) {
+		fprintf(stderr, "could not open file: %s\n", foutName);
+		return -1;
 	}
 	
 	printf("input files: %s %s %s\n", finName[0], finName[1], finName[2]);
-	printf("output files: ");
-	for (i = 0; i < NUM_OF_OUTPUT_FILES; i++)
-		printf("%s ", foutName[i]);
-	printf("\n");
+	printf("output files: %s\n", foutName);
 	printf("window size: %d\n", winSize);
 
 	const double dt = 1 / 50.0;
@@ -88,10 +83,7 @@ int main(int argc, char *argv[])
 
 	double blankTime; // 입력 처리를 위한 더미 변수
 
-	// fout list:
-	// 0: 축별 속도
-	// 1: 순간 가속도 (가속도의 norm)
-	// 2: 순간 속도 (축별 속도의 norm)
+	// fout: 축별 속도, 순간 가속도 (가속도의 norm), 순간 속도 (축별 속도의 norm)
 	vxAcc = 0.0, vyAcc = 0.0, vzAcc = 0.0;
 	while (!feof(fin[0])) {
 		vx = 0.0, vy = 0.0, vz = 0.0;
@@ -105,13 +97,11 @@ int main(int argc, char *argv[])
 			vx += ax * constTerm, vy += ay * constTerm, vz += az * constTerm;
 		}
 		vxAcc += vx, vyAcc += vy, vzAcc += vz;
-		vx /= interval, vy /= interval, vz /= interval;
+		//vx /= interval, vy /= interval, vz /= interval;
 		anorm = getNorm(axWin / winSize, ayWin / winSize, azWin / winSize); // 순간 가속도의 스칼라 (norm)
 		vnorm = getNorm(vx, vy, vz); // 순간 속도의 스칼라 (norm)
 		
-		fprintf(fout[0], "%.2lf\t%lf\t%lf\t%lf\n", timeCnt, vx, vy, vz);
-		fprintf(fout[1], "%.2lf\t%lf\n", timeCnt, anorm);
-		fprintf(fout[2], "%.2lf\t%lf\n", timeCnt, vnorm);
+		fprintf(fout, "%.2lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vx, vy, vz, anorm, vnorm);
 	}
 
 	// 전체 평균 속도
@@ -124,7 +114,6 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < 3; i++)
 		fclose(fin[i]);
-	for (i = 0; i < NUM_OF_OUTPUT_FILES; i++)
-		fclose(fout[i]);
+	fclose(fout);
 	return 0;
 }
