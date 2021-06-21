@@ -24,7 +24,8 @@ int main(int argc, char *argv[])
 	double norm;
 
 	const double dt = 1 / 50.0;
-	const double constTerm = 9.8 * dt / 2;
+	//const double constTerm = 9.8 * dt / 2;
+	const double constTerm = 9.8 * dt; // dcsmp2 수정을 반영함
 	double vx, vy, vz, vnorm;
 
 	printf("## log converter version 3 ##\n");
