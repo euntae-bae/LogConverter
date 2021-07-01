@@ -1,4 +1,4 @@
-/* lconv3b: 입력된 time-window 크기에 따라 
+/* lconv3c: 입력된 time-window 크기에 따라 
  * 입력: time-window
  * 입력 파일: lconv1의 x, y, z축 입력에 대한 각각의 출력파일, 즉 sensor-ax-out.txt, sensor-ay-out.txt, sensor-az.out.txt
  * 출력: 전체 평균 속도 (m/s)
