@@ -14,81 +14,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include "vector3.h"
 
 #define BUF_SIZE 256
 #define DEFAULT_WINDOW_SIZE	5 // 0.1초 단위
-
-typedef struct Vec3 {
-    double x, y, z;
-} Vec3;
-
-typedef struct Vec3Buffer {
-    Vec3 *buf;
-    Vec3 sum;
-    int curIdx;
-    int capacity;
-} Vec3Buffer;
-
-void buf_create(Vec3Buffer *vec, int size) {
-    vec->capacity = size;
-    vec->buf = (Vec3*)malloc(sizeof(Vec3) * size);
-    vec->curIdx = -1;
-    vec->sum.x = 0.0;
-    vec->sum.y = 0.0;
-    vec->sum.z = 0.0;
-}
-
-void buf_destroy(Vec3Buffer *vec) {
-    if (vec->buf) {
-        free(vec->buf);
-    }
-}
-
-void buf_clear(Vec3Buffer *vec) {
-    vec->curIdx = -1;
-    vec->sum.x = 0.0;
-    vec->sum.y = 0.0;
-    vec->sum.z = 0.0;
-}
-
-int buf_number_of_entry(Vec3Buffer *vec) {
-    return vec->curIdx + 1;
-}
-
-Vec3 buf_sum_of_entry(Vec3Buffer *vec) {
-    return vec->sum;
-}
-
-Vec3 buf_mean_of_entry(Vec3Buffer *vec) {
-    Vec3 sum = vec->sum;
-    int nEntry = vec->curIdx + 1;
-    sum.x /= (double)nEntry;
-    sum.y /= (double)nEntry;
-    sum.z /= (double)nEntry;
-    return sum;
-}
-
-void buf_append(Vec3Buffer *vec, Vec3 data) {
-    int i;
-    if (vec->curIdx == (vec->capacity - 1)) { // 버퍼가 가득찬 경우
-        vec->sum.x -= vec->buf[i].x;
-        vec->sum.y -= vec->buf[i].y;
-        vec->sum.z -= vec->buf[i].z;
-
-        // 두 번째부터 마지막 원소까지 앞으로 한 칸씩 밀어낸다.
-        for (i = 1; i < vec->curIdx; i++) {
-            vec->buf[i] = vec->buf[i + 1];
-        }
-    }
-    else {
-        ++vec->curIdx;
-    }
-    // 새로운 원소 삽입
-    vec->buf[vec->curIdx] = data;
-    vec->sum.x += data.x;
-    vec->sum.y += data.y;
-    vec->sum.z += data.z;
-}
 
 double getNorm(double x, double y, double z) {
 	return sqrt((x * x) + (y * y) + (z * z));

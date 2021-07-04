@@ -13,9 +13,6 @@ echo "lconv front-end for lconv4"
 printf "출력 파일을 저장할 디렉토리 이름을 입력하세요: "
 read outDir
 
-echo "outDir: ${outDir}"
-exit
-
 dirCnt=0
 for i in ${subDir[@]}; do # left, right
     for j in ${logDir}${i[@]}*; do # left, right 내부의 개별 디렉토리 접근 (1, 2, 3, 4, 5)
