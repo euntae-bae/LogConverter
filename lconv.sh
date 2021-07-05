@@ -6,6 +6,7 @@ logDir="data/210614"
 subDir=("/left/" "/right/")
 winList=(5 10 25)
 #outDir="out"
+programName="lconv4"
 
 echo "lconv front-end for lconv4"
 #printf "로그파일이 저장된 디렉토리를 입력하세요: "
@@ -27,7 +28,7 @@ for i in ${subDir[@]}; do # left, right
 
         # time-window 별 lconv3 출력파일 생성
         for k in ${winList[@]}; do # (5, 10, 25)
-            ./lconv3 $k
+            "./${programName}" $k
             destDir="${outDir}/win${k}$i${j/${logDir}${i}}"
             echo "> "$destDir
             mkdir -p $destDir

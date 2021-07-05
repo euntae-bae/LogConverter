@@ -15,12 +15,14 @@ int main(void)
         buf_append(&buf1, vec1);
     }
     buf_print(&buf1);
+    buf_integral(&buf1);
     
     for (i = 0; i <= 10; i++) {
         vec2.x = vec2.y = vec2.z = i;
         buf_append(&buf1, vec2);
     }
     buf_print(&buf1);
+    buf_integral(&buf1);
 
     return 0;
 }

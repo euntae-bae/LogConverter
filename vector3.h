@@ -18,6 +18,7 @@ void buf_clear(Vec3Buffer *vec);
 int buf_number_of_entry(const Vec3Buffer *vec);
 Vec3 buf_sum_of_entry(const Vec3Buffer *vec);
 Vec3 buf_mean_of_entry(const Vec3Buffer *vec);
+Vec3 buf_integral(const Vec3Buffer *vec);
 void buf_append(Vec3Buffer *vec, Vec3 data);
 void buf_print(const Vec3Buffer *vec);
 

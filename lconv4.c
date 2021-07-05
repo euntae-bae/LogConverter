@@ -86,9 +86,12 @@ int main(int argc, char *argv[])
         fprintf(stderr, "could not open file: %s\n", foutName);
 		return -1;
     }
+
+	fprintf(fout, "// time\tvx\tvy\tvz\tanorm\tvnorm\n");
+	fprintf(fwin, "// time\tax\tay\taz\tanorm\tvnorm\n");
 	
 	printf("input files: %s %s %s\n", finName[0], finName[1], finName[2]);
-	printf("output files: %s\n", foutName);
+	printf("output files: %s %s\n", foutName, fwinName);
 	printf("window size: %d\n", winSize);
 
 	const double dt = 1 / 50.0;
@@ -121,8 +124,10 @@ int main(int argc, char *argv[])
             if (buf_number_of_entry(&accBuf) >= accBuf.capacity) {
                 // time mean(ax) mean(ay) mean(az) mean(norm)
                 Vec3 mean = buf_mean_of_entry(&accBuf);
-                double norm = getNormVec3(mean);
-                fprintf(fwin, "%.2f\t%lf\tlf\tlf\tlf\n", timeCnt, mean.x, mean.y, mean.z, norm);
+				Vec3 vwin = buf_integral(&accBuf);
+                double anormWin = getNormVec3(mean);
+				double vnormWin = getNormVec3(vwin);
+                fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, mean.x, mean.y, mean.z, anormWin, vnormWin);
             }
 		}
 		vxAcc += vx, vyAcc += vy, vzAcc += vz;
