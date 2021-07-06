@@ -87,8 +87,8 @@ int main(int argc, char *argv[])
 		return -1;
     }
 
-	fprintf(fout, "// time\tvx\tvy\tvz\tanorm\tvnorm\n");
-	fprintf(fwin, "// time\tax\tay\taz\tanorm\tvnorm\n");
+	fprintf(fout, "time\tvx\tvy\tvz\tanorm\tvnorm\n");
+	fprintf(fwin, "time\tax\tay\taz\tanorm\tvnorm\tvx\tvy\tvz\n");
 	
 	printf("input files: %s %s %s\n", finName[0], finName[1], finName[2]);
 	printf("output files: %s %s\n", foutName, fwinName);
@@ -101,6 +101,8 @@ int main(int argc, char *argv[])
 
 	double blankTime; // 입력 처리를 위한 더미 변수
     Vec3 accVec;
+	Vec3 mean, vwin;
+	double anormWin, vnormWin;
 
 	// fout: 축별 속도, 순간 가속도 (가속도의 norm), 순간 속도 (축별 속도의 norm)
 	vxAcc = 0.0, vyAcc = 0.0, vzAcc = 0.0;
@@ -123,19 +125,22 @@ int main(int argc, char *argv[])
             buf_append(&accBuf, accVec);
             if (buf_number_of_entry(&accBuf) >= accBuf.capacity) {
                 // time mean(ax) mean(ay) mean(az) mean(norm)
-                Vec3 mean = buf_mean_of_entry(&accBuf);
-				Vec3 vwin = buf_integral(&accBuf);
-                double anormWin = getNormVec3(mean);
-				double vnormWin = getNormVec3(vwin);
-                fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, mean.x, mean.y, mean.z, anormWin, vnormWin);
+                mean = buf_mean_of_entry(&accBuf);
+				vwin = buf_integral(&accBuf);
+                anormWin = getNormVec3(mean);
+				vnormWin = getNormVec3(vwin);
+				// not on test
+               	//fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, mean.x, mean.y, mean.z, anormWin, vnormWin, vwin.x, vwin.y, vwin.z);
+				fprintf(fwin, "%.2f\t%lf\n", timeCnt, vnormWin);
             }
 		}
 		vxAcc += vx, vyAcc += vy, vzAcc += vz;
 		//vx /= interval, vy /= interval, vz /= interval;
 		anorm = getNorm(axWin / winSize, ayWin / winSize, azWin / winSize); // 순간 가속도의 스칼라 (norm)
 		vnorm = getNorm(vx, vy, vz); // 순간 속도의 스칼라 (norm)
-		
 		fprintf(fout, "%.2lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vx, vy, vz, anorm, vnorm);
+		// on test
+		//fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, mean.x, mean.y, mean.z, anormWin, vnormWin, vwin.x, vwin.y, vwin.z);
 	}
 
 	// 전체 평균 속도
@@ -143,8 +148,10 @@ int main(int argc, char *argv[])
 	double vyMean = vyAcc / timeCnt;
 	double vzMean = vzAcc / timeCnt;
 	double vMean = getNorm(vxMean, vyMean, vzMean);
-	printf("vxMean: %lf\tvyMean: %lf\tvzMean: %lf\n", vxMean, vyMean, vzMean);
-	printf("vMean: %lf\n", vMean);
+	printf(">> vxMean: %lf\tvyMean: %lf\tvzMean: %lf\n", vxMean, vyMean, vzMean);
+	printf(">> vMean: %lf\n", vMean);
+	fprintf(fout, ">> vxMean: %lf\tvyMean: %lf\tvzMean: %lf\n", vxMean, vyMean, vzMean);
+	fprintf(fout, ">> vMean: %lf\n", vMean);
 
     buf_destroy(&accBuf);
 	for (i = 0; i < 3; i++)

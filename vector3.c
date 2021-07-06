@@ -45,7 +45,7 @@ Vec3 buf_integral(const Vec3Buffer *vec) {
     const double dt = 1 / 50.0;
 	const double constTerm = 9.8 * dt;
 	const double interval = 0.02 * vec->capacity;
-    /*
+
     int i;
     Vec3 v = { 0.0, 0.0, 0.0 };
 
@@ -54,25 +54,25 @@ Vec3 buf_integral(const Vec3Buffer *vec) {
         v.y += vec->buf[i].x * constTerm;
         v.z += vec->buf[i].x * constTerm;
     }
-    v.x /= interval;
-    v.y /= interval;
-    v.z /= interval;
-    */
+    // v.x /= interval;
+    // v.y /= interval;
+    // v.z /= interval;
+    
 
     Vec3 sum = buf_sum_of_entry(vec);
-    sum.x = sum.x * constTerm / interval;
-    sum.y = sum.y * constTerm / interval;
-    sum.z = sum.z * constTerm / interval;
+    sum.x = sum.x * constTerm / interval, sum.y = sum.y * constTerm / interval, sum.z = sum.z * constTerm / interval;
+    // sum.x = sum.x * constTerm, sum.y = sum.y * constTerm, sum.z = sum.z * constTerm;
 
     //printf("v: (%lf, %lf, %lf)\n", v.x, v.y, v.z);
     //printf("s: (%lf, %lf, %lf)\n", sum.x, sum.y, sum.z);
-    //return v;
-    return sum;
+    return v;
+    
+    //return sum;
 }
 
 void buf_append(Vec3Buffer *vec, Vec3 data) {
     int i;
-    if (vec->curIdx == (vec->capacity - 1)) { // 버퍼가 가득찬 경우
+    if (vec->curIdx >= (vec->capacity - 1)) { // 버퍼가 가득찬 경우
         vec->sum.x -= vec->buf[0].x;
         vec->sum.y -= vec->buf[0].y;
         vec->sum.z -= vec->buf[0].z;
