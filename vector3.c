@@ -43,7 +43,7 @@ Vec3 buf_mean_of_entry(const Vec3Buffer *vec) {
 
 Vec3 buf_integral(const Vec3Buffer *vec) {
     const double dt = 1 / 50.0;
-	const double constTerm = 9.8 * dt;
+	const double constTerm = 9.8 * dt / 2;
 	const double interval = 0.02 * vec->capacity;
 
     int i;

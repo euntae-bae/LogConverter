@@ -4,7 +4,7 @@ outFile="sensor-out.txt"
 winFile="sensor-win.txt"
 logDir="data/210614"
 subDir=("/left/" "/right/")
-winList=(5 10 25)
+winList=(10 25 50) # (5 10 25)
 #outDir="out"
 programName="lconv4"
 

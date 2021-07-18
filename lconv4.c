@@ -1,12 +1,6 @@
-/* lconv4: lconv3c에서 버퍼 도입, 윈도우를 움직이며 적분·합산하는 방식으로 변경 
- * 입력: time-window
- * 입력 파일: lconv1의 x, y, z축 입력에 대한 각각의 출력파일, 즉 sensor-ax-out.txt, sensor-ay-out.txt, sensor-az.out.txt
- * 출력: 전체 평균 속도 (m/s)
- * 출력 파일: 2개 (sensor-out.txt, sensor-win.txt)
- * (1). time-window 크기에 따른 vx, vy, vz 산출 
- * (2). time-window 크기에 따른 순간 가속도 스칼라
- * (3). time-window 크기에 따른 순간 속도의 norm
- * (4). time-window 단위 평균 가속도와 속도
+/* lconv4b: 기존의 lconv에 존재하는 적분 알고리즘 버그 수정 - constTerm에 보정값 1/2 곱
+ * 로그로 출력하는 항목 축소
+ * lconv4: lconv3c에서 버퍼 도입, 윈도우를 움직이며 적분·합산하는 방식으로 변경 
  */
 
 #include <stdio.h>
@@ -48,7 +42,7 @@ int main(int argc, char *argv[])
 
     Vec3Buffer accBuf;
 
-	printf("## log converter version 4 ##\n");
+	printf("## log converter version 4b ##\n");
 	strcpy(finName[0], "sensor-ax-out.txt");
 	strcpy(finName[1], "sensor-ay-out.txt");
 	strcpy(finName[2], "sensor-az-out.txt");
@@ -88,15 +82,14 @@ int main(int argc, char *argv[])
     }
 
 	fprintf(fout, "time\tvx\tvy\tvz\tanorm\tvnorm\n");
-	fprintf(fwin, "time\tax\tay\taz\tanorm\tvnorm\tvx\tvy\tvz\n");
+	fprintf(fwin, "time\tvnorm\tvmean\n");
 	
 	printf("input files: %s %s %s\n", finName[0], finName[1], finName[2]);
 	printf("output files: %s %s\n", foutName, fwinName);
 	printf("window size: %d\n", winSize);
 
 	const double dt = 1 / 50.0;
-	//const double constTerm = 9.8 * dt / 2;
-	const double constTerm = 9.8 * dt; // dcsmp2 수정을 반영함
+	const double constTerm = 9.8 * dt / 2;
 	const double interval = 0.02 * winSize;
 
 	double blankTime; // 입력 처리를 위한 더미 변수
@@ -106,41 +99,22 @@ int main(int argc, char *argv[])
 
 	// fout: 축별 속도, 순간 가속도 (가속도의 norm), 순간 속도 (축별 속도의 norm)
 	vxAcc = 0.0, vyAcc = 0.0, vzAcc = 0.0;
-    buf_create(&accBuf, winSize);
 	while (!feof(fin[0])) {
 		vx = 0.0, vy = 0.0, vz = 0.0;
 		axWin = 0.0, ayWin = 0.0, azWin = 0.0;
-		// timeCnt += 0.02 * winSize;
+		timeCnt += 0.02 * winSize;
 		for (i = 0; i < winSize; i++) { // window-size만큼 가속도 값을 적분(속도)/합산
-			timeCnt += 0.02;
             fscanf(fin[0], "%lf\t%lf\n", &blankTime, &ax);
 			fscanf(fin[1], "%lf\t%lf\n", &blankTime, &ay);
 			fscanf(fin[2], "%lf\t%lf\n", &blankTime, &az);
 			axWin += ax, ayWin += ay, azWin += az;
 			vx += ax * constTerm, vy += ay * constTerm, vz += az * constTerm;
-
-            accVec.x = ax;
-            accVec.y = ay;
-            accVec.z = az;
-            buf_append(&accBuf, accVec);
-            if (buf_number_of_entry(&accBuf) >= accBuf.capacity) {
-                // time mean(ax) mean(ay) mean(az) mean(norm)
-                mean = buf_mean_of_entry(&accBuf);
-				vwin = buf_integral(&accBuf);
-                anormWin = getNormVec3(mean);
-				vnormWin = getNormVec3(vwin);
-				// not on test
-               	//fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, mean.x, mean.y, mean.z, anormWin, vnormWin, vwin.x, vwin.y, vwin.z);
-				fprintf(fwin, "%.2f\t%lf\n", timeCnt, vnormWin);
-            }
 		}
 		vxAcc += vx, vyAcc += vy, vzAcc += vz;
 		//vx /= interval, vy /= interval, vz /= interval;
 		anorm = getNorm(axWin / winSize, ayWin / winSize, azWin / winSize); // 순간 가속도의 스칼라 (norm)
 		vnorm = getNorm(vx, vy, vz); // 순간 속도의 스칼라 (norm)
 		fprintf(fout, "%.2lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vx, vy, vz, anorm, vnorm);
-		// on test
-		//fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, mean.x, mean.y, mean.z, anormWin, vnormWin, vwin.x, vwin.y, vwin.z);
 	}
 
 	// 전체 평균 속도
@@ -152,6 +126,30 @@ int main(int argc, char *argv[])
 	printf(">> vMean: %lf\n", vMean);
 	fprintf(fout, ">> vxMean: %lf\tvyMean: %lf\tvzMean: %lf\n", vxMean, vyMean, vzMean);
 	fprintf(fout, ">> vMean: %lf\n", vMean);
+
+	for (i = 0; i < 3; i++)
+		rewind(fin[i]);
+	timeCnt = 0.0;
+    buf_create(&accBuf, winSize);
+	while (!feof(fin[0])) {
+		for (i = 0; i < winSize; i++) {
+			timeCnt += 0.02;
+            fscanf(fin[0], "%lf\t%lf\n", &blankTime, &ax);
+			fscanf(fin[1], "%lf\t%lf\n", &blankTime, &ay);
+			fscanf(fin[2], "%lf\t%lf\n", &blankTime, &az);
+			accVec.x = ax;
+            accVec.y = ay;
+            accVec.z = az;
+            buf_append(&accBuf, accVec);
+            if (buf_number_of_entry(&accBuf) >= accBuf.capacity) {
+                mean = buf_mean_of_entry(&accBuf);
+				vwin = buf_integral(&accBuf);
+                anormWin = getNormVec3(mean);
+				vnormWin = getNormVec3(vwin);
+				fprintf(fwin, "%.2f\t%lf\t%lf\n", timeCnt, vnormWin, vMean);
+            }
+		}
+	}
 
     buf_destroy(&accBuf);
 	for (i = 0; i < 3; i++)

@@ -19,4 +19,5 @@ test: bufTest.c vector3.c vector3.h
 all: lconv1 lconv4
 
 clean:
-	rm *.exe
+	# rm lconv?
+	rm lconv?.exe
