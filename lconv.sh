@@ -1,5 +1,6 @@
 #!/bin/bash
 
+flistFile="result-list.txt"
 outFile="sensor-out.txt"
 winFile="sensor-win.txt"
 logDir="data/210614"
@@ -8,7 +9,7 @@ winList=(10 25 50) # (5 10 25)
 #outDir="out"
 programName="lconv4"
 
-echo "lconv front-end for lconv4"
+echo "lconv front-end for lconv4c"
 #printf "로그파일이 저장된 디렉토리를 입력하세요: "
 #read logDir
 printf "출력 파일을 저장할 디렉토리 이름을 입력하세요: "
@@ -28,18 +29,19 @@ for i in ${subDir[@]}; do # left, right
 
         # time-window 별 lconv3 출력파일 생성
         for k in ${winList[@]}; do # (5, 10, 25)
-            "./${programName}" $k
             destDir="${outDir}/win${k}$i${j/${logDir}${i}}"
+            echo ${destDir} >> ${flistFile}
+            "./${programName}" $k
             echo "> "$destDir
             mkdir -p $destDir
             mv $outFile $destDir
             mv $winFile $destDir
-            echo
             let dirCnt=$dirCnt+1
         done # end of k
         rm sensor-a*.txt
     done # end of j
     echo
 done # end of i
+mv ${flistFile} ./${outDir}
 
 echo 총 $dirCnt개 디렉토리를 생성했습니다.

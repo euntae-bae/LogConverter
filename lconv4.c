@@ -12,6 +12,18 @@
 
 #define BUF_SIZE 256
 #define DEFAULT_WINDOW_SIZE	5 // 0.1초 단위
+#define DISTANCE_METER	30 // 이동 거리
+
+typedef struct measureData {
+	double elapsedTime;	// 경과 시간
+	double speed;		// 실제 평균 보행 속력
+	// 측정 평균 보행 속력
+	double vxMean;
+	double vyMean;
+	double vzMean;
+	double vMeanNorm;
+	double errorRatio;	// 오차율
+} MeasureData;
 
 double getNorm(double x, double y, double z) {
 	return sqrt((x * x) + (y * y) + (z * z));
@@ -32,6 +44,9 @@ int main(int argc, char *argv[])
 	FILE *fout = NULL;
     FILE *fwin = NULL;
 
+	FILE *flist = NULL;
+	MeasureData flistData;
+
 	int i;
 	double timeCnt = 0.0;
 	double ax, ay, az;
@@ -42,7 +57,7 @@ int main(int argc, char *argv[])
 
     Vec3Buffer accBuf;
 
-	printf("## log converter version 4b ##\n");
+	printf("## log converter version 4c ##\n");
 	strcpy(finName[0], "sensor-ax-out.txt");
 	strcpy(finName[1], "sensor-ay-out.txt");
 	strcpy(finName[2], "sensor-az-out.txt");
@@ -80,9 +95,15 @@ int main(int argc, char *argv[])
         fprintf(stderr, "could not open file: %s\n", foutName);
 		return -1;
     }
+	
+	flist = fopen("result-list.txt", "at");
+	if (!flist) {
+		fprintf(stderr, "could not open file flist.txt\n");
+		return -1;
+	}
 
 	fprintf(fout, "time\tvx\tvy\tvz\tanorm\tvnorm\n");
-	fprintf(fwin, "time\tvnorm\tvmean\n");
+	fprintf(fwin, "time\tvnorm\t측정속도\t실제속도\n");
 	
 	printf("input files: %s %s %s\n", finName[0], finName[1], finName[2]);
 	printf("output files: %s %s\n", foutName, fwinName);
@@ -117,15 +138,29 @@ int main(int argc, char *argv[])
 		fprintf(fout, "%.2lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", timeCnt, vx, vy, vz, anorm, vnorm);
 	}
 
-	// 전체 평균 속도
+	// 전체 평균 속도 (측정 속도)
 	double vxMean = vxAcc / timeCnt;
 	double vyMean = vyAcc / timeCnt;
 	double vzMean = vzAcc / timeCnt;
 	double vMean = getNorm(vxMean, vyMean, vzMean);
-	printf(">> vxMean: %lf\tvyMean: %lf\tvzMean: %lf\n", vxMean, vyMean, vzMean);
-	printf(">> vMean: %lf\n", vMean);
+	//printf(">> vxMean: %lf\tvyMean: %lf\tvzMean: %lf\n", vxMean, vyMean, vzMean);
+	//printf(">> vMean: %lf\n", vMean);
 	fprintf(fout, ">> vxMean: %lf\tvyMean: %lf\tvzMean: %lf\n", vxMean, vyMean, vzMean);
 	fprintf(fout, ">> vMean: %lf\n", vMean);
+
+	// 실제 이동 속도
+	const double vMeanAct = DISTANCE_METER / timeCnt;
+
+	flistData.elapsedTime = timeCnt;
+	flistData.vxMean = vxMean;
+	flistData.vyMean = vyMean;
+	flistData.vzMean = vzMean;
+	flistData.vMeanNorm = vMean;
+	flistData.speed = vMeanAct;
+	double vMeanAbs = fabs(vMean);
+	flistData.errorRatio = (fabs(vMeanAbs - vMeanAct) / vMeanAct) * 100.0;
+	fprintf(flist, "elapsedTime: %lf\tspeed: %lf\tvxMean: %lf\tvyMean: %lf\tvzMean: %lf\tvMeanNorm: %lf\terrorRatio: %lf\n",
+		flistData.elapsedTime, flistData.speed, flistData.vxMean, flistData.vyMean, flistData.vzMean, flistData.vMeanNorm, flistData.errorRatio);
 
 	for (i = 0; i < 3; i++)
 		rewind(fin[i]);
@@ -146,7 +181,7 @@ int main(int argc, char *argv[])
 				vwin = buf_integral(&accBuf);
                 anormWin = getNormVec3(mean);
 				vnormWin = getNormVec3(vwin);
-				fprintf(fwin, "%.2f\t%lf\t%lf\n", timeCnt, vnormWin, vMean);
+				fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\n", timeCnt, vnormWin, vMean, vMeanAct);
             }
 		}
 	}
@@ -156,5 +191,6 @@ int main(int argc, char *argv[])
 		fclose(fin[i]);
 	fclose(fout);
     fclose(fwin);
+	fclose(flist);
 	return 0;
 }
