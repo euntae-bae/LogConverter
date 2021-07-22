@@ -159,8 +159,10 @@ int main(int argc, char *argv[])
 	flistData.speed = vMeanAct;
 	double vMeanAbs = fabs(vMean);
 	flistData.errorRatio = (fabs(vMeanAbs - vMeanAct) / vMeanAct) * 100.0;
-	fprintf(flist, "elapsedTime: %lf\tspeed: %lf\tvxMean: %lf\tvyMean: %lf\tvzMean: %lf\tvMeanNorm: %lf\terrorRatio: %lf\n",
-		flistData.elapsedTime, flistData.speed, flistData.vxMean, flistData.vyMean, flistData.vzMean, flistData.vMeanNorm, flistData.errorRatio);
+	// fprintf(flist, "elapsedTime: %lf\tspeed: %lf\tvxMean: %lf\tvyMean: %lf\tvzMean: %lf\tvMeanNorm: %lf\terrorRatio: %lf\n",
+	// 	flistData.elapsedTime, flistData.speed, flistData.vxMean, flistData.vyMean, flistData.vzMean, flistData.vMeanNorm, flistData.errorRatio);
+	// 소요시간, 실제 속도, 측정 속도, 오차율
+	fprintf(flist, "%lf\t%lf\t%lf\t%lf\n", flistData.elapsedTime, flistData.speed, flistData.vMeanNorm, flistData.errorRatio);
 
 	for (i = 0; i < 3; i++)
 		rewind(fin[i]);
