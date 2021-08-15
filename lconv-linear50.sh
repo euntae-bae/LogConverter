@@ -4,7 +4,6 @@ flistFile="result-list.txt"
 outFile="sensor-out.txt"
 winFile="sensor-win.txt"
 logDir="data/210812"
-winList=(25) # (5 10 25 50)
 programName="lconv4"
 
 echo "lconv-linear front-end for lconv4c"
@@ -13,12 +12,15 @@ echo "lconv-linear front-end for lconv4c"
 printf "출력 파일을 저장할 디렉토리 이름을 입력하세요: "
 read outDir
 
+mkdir ${outDir}
+echo ${outDir}
+# 소요시간, 실제 속도, 측정 속도, 오차율
+echo -e "소요시간\t실제 속도\t측정 속도\t오차율" >> ${flistFile}
+
 dirCnt=0
 # 로그 파일 폴더 순회: 폴더 단위로 실행
 for i in ${logDir}/*; do
     logSubDir=$(basename ${i})
-    echo ${logSubDir}
-
     # lconv1 출력파일 생성
     cp ${i}/sensor-a?.txt ./
     ./lconv1 sensor-ax.txt
@@ -26,16 +28,14 @@ for i in ${logDir}/*; do
     ./lconv1 sensor-az.txt
 
     # 윈도우 사이즈별 lconv4 출력파일 생성
-    for j in ${winList[@]}; do
-        destDir="${outDir}/${logSubDir}/win${j}"
-        echo ${destDir} >> ${flistFile}
-        ./${programName} ${j}
-        echo "> "${destDir}
-        mkdir -p ${destDir}
-        mv $outFile $destDir
-        mv $winFile $destDir
-        let dirCnt=$dirCnt+1
-    done
+    destDir="${outDir}/${logSubDir}"
+    # echo ${destDir} >> ${flistFile}
+    ./${programName} 50
+    echo "> ${destDir}"
+    mkdir -p ${destDir}
+    mv $outFile $destDir
+    mv $winFile $destDir
+    let dirCnt=$dirCnt+1
     rm sensor-a*.txt
     echo
 done

@@ -3,7 +3,7 @@
 flistFile="result-list.txt"
 outFile="sensor-out.txt"
 winFile="sensor-win.txt"
-logDir="data/210722"
+logDir="data/210812"
 programName="lconv4"
 
 echo "lconv-linear front-end for lconv4c"
