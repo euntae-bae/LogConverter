@@ -51,8 +51,8 @@ Vec3 buf_integral(const Vec3Buffer *vec) {
 
     for (i = 0; i < buf_number_of_entry(vec); i++) {
         v.x += vec->buf[i].x * constTerm;
-        v.y += vec->buf[i].x * constTerm;
-        v.z += vec->buf[i].x * constTerm;
+        v.y += vec->buf[i].y * constTerm;
+        v.z += vec->buf[i].z * constTerm;
     }
     v.x /= interval;
     v.y /= interval;

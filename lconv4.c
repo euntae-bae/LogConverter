@@ -13,6 +13,7 @@
 #define BUF_SIZE 256
 #define DEFAULT_WINDOW_SIZE	5 // 0.1초 단위
 #define DISTANCE_METER	30 // 이동 거리
+#define PROGRAM_VERSION "4d"
 
 typedef struct measureData {
 	double elapsedTime;	// 경과 시간
@@ -57,7 +58,7 @@ int main(int argc, char *argv[])
 
     Vec3Buffer accBuf;
 
-	printf("## log converter version 4c ##\n");
+	printf("## log converter version %s ##\n", PROGRAM_VERSION);
 	strcpy(finName[0], "sensor-ax-out.txt");
 	strcpy(finName[1], "sensor-ay-out.txt");
 	strcpy(finName[2], "sensor-az-out.txt");
