@@ -1,0 +1,27 @@
+$ grep -re "-> v:" ./210810/*/sensor-log-mean.txt
+./210810/51/sensor-log-mean.txt:-> v: 0.731165
+./210810/52/sensor-log-mean.txt:-> v: 0.672708
+./210810/53/sensor-log-mean.txt:-> v: 0.735841
+./210810/54/sensor-log-mean.txt:-> v: 1.09929
+./210810/55/sensor-log-mean.txt:-> v: 0.870518
+./210810/56/sensor-log-mean.txt:-> v: 1.03536
+./210810/57/sensor-log-mean.txt:-> v: 1.07324
+./210810/58/sensor-log-mean.txt:-> v: 1.20415
+./210810/59/sensor-log-mean.txt:-> v: 1.12824
+./210810/60/sensor-log-mean.txt:-> v: 1.05665
+./210810/61/sensor-log-mean.txt:-> v: 1.08412
+./210810/62/sensor-log-mean.txt:-> v: 1.2269
+./210810/63/sensor-log-mean.txt:-> v: 1.21122
+./210810/64/sensor-log-mean.txt:-> v: 0.673996
+./210810/65/sensor-log-mean.txt:-> v: 0.902155
+./210810/66/sensor-log-mean.txt:-> v: 1.06732
+./210810/67/sensor-log-mean.txt:-> v: 0.982753
+./210810/68/sensor-log-mean.txt:-> v: 1.24787
+./210810/69/sensor-log-mean.txt:-> v: 1.08739
+./210810/70/sensor-log-mean.txt:-> v: 1.26918
+./210810/71/sensor-log-mean.txt:-> v: 0.878972
+./210810/72/sensor-log-mean.txt:-> v: 0.705535
+./210810/73/sensor-log-mean.txt:-> v: 0.894789
+./210810/74/sensor-log-mean.txt:-> v: 0.939538
+./210810/75/sensor-log-mean.txt:-> v: 0.803249
+./210810/76/sensor-log-mean.txt:-> v: 0.818934

@@ -4,7 +4,7 @@ flistFile="result-list.txt"
 outFile="sensor-out.txt"
 winFile="sensor-win.txt"
 logDir="data/210810"
-programName="lconv4"
+programName="lconv5"
 
 echo "lconv-linear front-end for lconv4d"
 #printf "로그파일이 저장된 디렉토리를 입력하세요: "
