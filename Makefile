@@ -10,7 +10,7 @@ test: bufTest.c vector3.c vector3.h
 stepcnt: stepcnt.c
 	gcc -o stepcnt stepcnt.c
 
-all: lconv1 lconv4
+all: lconv1 lconv4 stepcnt
 
 clean:
 	# rm lconv?

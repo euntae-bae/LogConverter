@@ -1,39 +1,58 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-#define READ_FILE_NAME  "sensor-win.txt"
-#define WRITE_FILE_NAME "stepcnt.txt"
-#define BUF_SIZE 256
+#define DEFAULT_READ_FILE_NAME  "sensor-win.txt"
+#define BUF_SIZE                256
+#define START_TIME_CNT          0.5
+#define UNIT_TIME               0.02
+#define DEFAULT_LIST_SIZE       3000
+
+typedef struct WinEntry {
+    float time;
+    float vnorm;
+    float avgCalcV;
+    float avgRealV;
+} WinEntry;
 
 int main(int argc, char **argv)
 {
     FILE *fin = NULL;
-    //FILE *fout = NULL;
-    char finName[BUF_SIZE] = READ_FILE_NAME;
+    char finName[BUF_SIZE];
     char buf[BUF_SIZE];
-    float timeCnt, vnorm, vMean, avMean;
+    WinEntry bufList[DEFAULT_LIST_SIZE];
+    //puts("# step counter");
 
     if (argc > 3) {
         fprintf(stderr, "usage: stepcnt [<file-info>] [<filename>]\n");
         return -1;
     }
 
-    fin = fopen(READ_FILE_NAME, "rt");
+    if (argc == 3)
+        strcpy(finName, argv[2]);
+    else
+        strcpy(finName, DEFAULT_READ_FILE_NAME);
+    fin = fopen(finName, "rt");
     if (!fin) {
-        fprintf(stderr, "E: failed to open file %s\n", READ_FILE_NAME);
+        fprintf(stderr, "E: failed to open file %s\n", DEFAULT_READ_FILE_NAME);
         return -1;
     }
 
-    fgets(buf, BUF_SIZE, fin);
-    puts(buf);
+    // 1-pass
+    int curIdx = 0;
+    int listSize = 0;
+    WinEntry curEntry;
 
+    fgets(buf, BUF_SIZE, fin); // 첫 줄은 읽어서 버린다.
     while (!feof(fin)) {
-        fscanf(fin, "%f\t%f\t%f\t%f\n", &timeCnt, &vnorm, &vMean, &avMean);
-        printf("%f\t%f\t%f\t%f\n", timeCnt, vnorm, vMean, avMean);
+        fscanf(fin, "%f\t%f\t%f\t%f\n", &bufList[curIdx].time, &bufList[curIdx].vnorm, &bufList[curIdx].avgCalcV, &bufList[curIdx].avgRealV);
+        listSize++;
     }
-    printf("실험 회차: %s\n", argv[1]);
-    printf("평균 보행 속도: %f\n", vMean);
-    printf("총 소요시간: %.2f초\n", timeCnt);
+
+    if (argc >= 2)
+        printf("실험 회차: %s\n", argv[1]);
+    printf("listSize: %d\n", listSize);
+
     fclose(fin);
     return 0;
 }
