@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
 				vwin = buf_integral(&accBuf);
                 anormWin = getNormVec3(mean);
 				vnormWin = getNormVec3(vwin);
-				fctr %= 5;
+				fctr %= FILTER_SIZE;
 				if (fctr == 0)
 					fprintf(fwin, "%.2f\t%lf\t%lf\t%lf\n", timeCnt, vnormWin, vMean, vMeanAct);
 				fctr++;
