@@ -25,17 +25,11 @@ typedef struct WinEntry {
     float avgRealV;
 } WinEntry;
 
-typedef struct Wave {
-    int startIdx;
-    int endIdx;
-    float period;
-} Wave;
-
 // 극값을 갖는 점
-typedef InflectPoint {
-    int idx;
+typedef struct InflectPoint {
     char status;
-};
+    int idx;
+} InflectPoint;
 
 void win_dump(const WinEntry *list, int len, int ln) {
     int i;
@@ -67,25 +61,26 @@ float win_minimum(const WinEntry *list, int len) {
     return min;
 }
 
-int getMaxFromList(const WinEntry *buf, const int *list, int len) {
+int getMaxFromList(const WinEntry *buf, const InflectPoint *list, int len) {
     int i;
-    int maxIdx = buf[list[0]].vnorm;
+    int maxIdx = list[0].idx;
     for (i = 1; i < len; i++) {
-        if (buf[maxIdx].vnorm < buf[list[i]].vnorm)
-            maxIdx = list[i];
+        if (buf[maxIdx].vnorm < buf[list[i].idx].vnorm)
+            maxIdx = list[i].idx;
     }
     return maxIdx;
 }
 
-int getMinFromList(const WinEntry *buf, const int *list, int len) {
+int getMinFromList(const WinEntry *buf, const InflectPoint *list, int len) {
     int i;
-    int minIdx = buf[list[0]].vnorm;
+    int minIdx = list[0].idx;
     for (i = 1; i < len; i++) {
-        if (buf[minIdx].vnorm > buf[list[i]].vnorm)
-            minIdx = list[i];
+        if (buf[minIdx].vnorm > buf[list[i].idx].vnorm)
+            minIdx = list[i].idx;
     }
     return minIdx;
 }
+
 // 1: 위로 볼록 (극대)
 // 2: 아래로 볼록 (극소)
 // 0: 변곡점 아님
@@ -99,6 +94,20 @@ int win_isInflect(const WinEntry *list, int idx) {
     else if ((curV < prevV) && (curV < nextV))
         return 2;
     return 0;
+}
+
+void bubble_sortf(float *list, int len) {
+    int i, j;
+    float temp;
+    for (i = 0; i < len; i++) {
+        for (j = 0; j < len - i - 1; j++) {
+            if (list[j] > list[j + 1]) {
+                temp = list[j + 1];
+                list[j + 1] = list[j];
+                list[j] = temp;
+            }
+        }
+    }
 }
 
 int main(int argc, char **argv)
@@ -124,7 +133,10 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    // 1-pass
+    if (argc >= 2)
+        printf("실험 회차: %s\n", argv[1]);
+
+    /* pass-1 */
     int curIdx = 0;
     int listSize = 0;
     float elapsedTime;
@@ -137,62 +149,154 @@ int main(int argc, char **argv)
         curIdx++;
     }
     fclose(fin);
-    // win_dump(bufList, listSize, 0);
-
     elapsedTime = bufList[listSize - 1].time;
 
+    /* pass-2 */
     int i;
     int ret;
-    int *localMaxList = (int*)malloc(sizeof(int) * listSize);       // 극대점들의 인덱스 저장
-    int *localMinList = (int*)malloc(sizeof(int) * listSize);       // 극소점들의 인덱스 저장
-    int *negPeakList = (int*)malloc(sizeof(int) * listSize);        // 극대에서 극소로 떨어지는 점들의 인덱스 저장
-    float *periodList = (float*)malloc(sizeof(float) * listSize);   // 주기의 
-    int maxCnt = 0, minCnt = 0;
-    int negPeakCnt = 0;
-    int periodCnt = 0;
+
+    InflectPoint *inflList = (InflectPoint*)malloc(sizeof(InflectPoint) * listSize);
+    int inflCnt = 0;
     int stepcnt = 0; // 걸음수
-    //printf("time\tlocal max\tlocal min\n");
+    
+    int maxCnt = 0, minCnt = 0;
+    float maxSum = 0.0f, minSum = 0.0f;
+    float maxAvg, minAvg;
     for (i = 1; i < listSize; i++) {
         ret = win_isInflect(bufList, i);
         if (ret == 1) { // +
             //printf("%f\t%f\t\n", bufList[i].time, bufList[i].vnorm);
-            localMaxList[maxCnt++] = i;
-            if ((i + 1 < listSize) && win_isInflect(bufList, i + 1) == 2) {
-                negPeakList[negPeakCnt++] = i + 1;
-            }
+            inflList[inflCnt].status = '+';
+            inflList[inflCnt].idx = i;
+            inflCnt++;
+            maxSum += bufList[i].vnorm;
+            maxCnt++;
         }
         else if (ret == 2) { // -
             //printf("%f\t\t%f\n", bufList[i].time, bufList[i].vnorm);
-            localMinList[minCnt++] = i;
+            inflList[inflCnt].status = '-';
+            inflList[inflCnt].idx = i;
+            inflCnt++;
+            minSum += bufList[i].vnorm;
+            minCnt++;
         }
     }
-    /*
-    printf("maxCnt: %d\n", maxCnt);
-    for (i = 0; i < maxCnt; i++)
-        //printf("%d\t%f\t%f\n", localMaxList[i], bufList[localMaxList[i]].time, bufList[localMaxList[i]].vnorm);
-        printf("%f\n", bufList[localMaxList[i]].vnorm);
-    printf("\nminCnt: %d\n", minCnt);
-    for (i = 0; i < minCnt; i++)
-        //printf("%d\t%f\t%f\n", localMinList[i], bufList[localMinList[i]].time, bufList[localMinList[i]].vnorm);
-        printf("%f\n", bufList[localMinList[i]].vnorm);
-    printf("\nnegPeakCnt: %d\n", negPeakCnt);
-    for (i = 0; i < negPeakCnt; i++) {
-        printf("%f\t%f\n", bufList[negPeakList[i]].time, bufList[negPeakList[i]].vnorm);
-    }
-    */
-   int maxIdx = getMaxFromList(bufList, localMaxList, maxCnt);
-   int minIdx = getMinFromList(bufList, localMinList, minCnt);
-   printf("maxCnt: %d\tmaxIdx: %d\tmax: %f\n", maxCnt, maxIdx, bufList[maxIdx].vnorm);
-   printf("minCnt: %d\tminIdx: %d\tmin: %f\n", minCnt, minIdx, bufList[minIdx].vnorm);
-   printf("negPeakCnt: %d\n", negPeakCnt);
+    maxAvg = maxSum / (float)maxCnt;
+    minAvg = minSum / (float)minCnt;
 
-    if (argc >= 2)
-        printf("실험 회차: %s\n", argv[1]);
-    //printf("listSize: %d\n", listSize);
-    free(localMaxList);
-    free(localMinList);
-    free(negPeakList);
-    free(periodList);
+    /* 고점(극대)에서 저점(극소)으로 떨어지는 값들을 계산한다. */
+    // inflDiffTbl: inflList와 같은 인덱스 체계를 공유한다.
+    // diffList: inflDiffTbl로부터 극대에서 극소로 떨어지는 경우의 vnorm delta 값을 추출하여 저장한다. 값을 저장한 후 오름차순으로 정렬하여 사용한다.
+    // TODO: inflDiffTbl을 inflList로 통합; InflectPoint 구조체에 diff 멤버를 추가한다.
+    float *inflDiffTbl = (float*)malloc(sizeof(float) * inflCnt);
+    int startPoint;
     
+    float *diffList = NULL;
+    int diffCnt = 0;
+
+    for (i = 0; i < inflCnt; i++) {
+        inflDiffTbl[i] = bufList[inflList[i].idx].vnorm;
+    }
+    startPoint = (inflList[0].status == '+') ? 0 : 1;
+    for (i = startPoint; (i + 1) < inflCnt; i += 2) {
+        inflDiffTbl[i] -= inflDiffTbl[i + 1];
+        diffCnt++;
+    }
+    // printf("inflDiffTbl:\n");
+    // printf("[s idx] vnorm\t\tvnormDiff\n");
+
+    // for (i = 0; i < inflCnt; i++) {
+    //     printf("[%c%04d] %f\t%f\n", inflList[i].status, inflList[i].idx, bufList[inflList[i].idx].vnorm, inflDiffTbl[i]);
+    // }
+    // puts("");
+    diffList = (float*)malloc(sizeof(float) * diffCnt);
+    curIdx = 0;
+    for (i = 0; i < inflCnt; i++) {
+        if (inflList[i].status == '+') {
+            // printf("[%c%04d] %f\t%f\n", inflList[i].status, inflList[i].idx, bufList[inflList[i].idx].vnorm, inflDiffTbl[i]);
+            diffList[curIdx++] = inflDiffTbl[i];
+        }
+    }
+    // printf("> 총 %d개\n\n", i);
+
+    bubble_sortf(diffList, diffCnt);
+    // for (i = 0; i < diffCnt; i++)
+    //     printf("diffList[%d]: %f\n", i, diffList[i]);
+
+    const int DIFF_MEAN_LIST_SIZE = diffCnt / 3;    // diffList의 1/3개를 각각의 평균의 기준으로 잡는다.
+    float sdiffMean = 0.0f, ldiffMean = 0.0f;       // 격차가 작은 경우의 평균과 큰 경우의 평균 (그런 두 가지 상태로 나뉘는 경향이 있다)
+    for (i = 0; i < DIFF_MEAN_LIST_SIZE; i++) {
+        sdiffMean += diffList[i];
+        ldiffMean += diffList[diffCnt - 1 - i];
+    }
+    sdiffMean /= DIFF_MEAN_LIST_SIZE;
+    ldiffMean /= DIFF_MEAN_LIST_SIZE;
+    printf("small diff mean: %f\n", sdiffMean);
+    printf("large diff mean: %f\n", ldiffMean);
+
+    stepcnt = 0;
+    for (i = 0; i < diffCnt; i++) {
+        if (diffList[i] <= ldiffMean * 1.3f && diffList[i] >= ldiffMean * 0.7f) {
+            stepcnt++;
+        }
+    }
+    printf("stepcnt: %d\n", stepcnt);
+
+    /* 첫 세 극소값을 추출한다. */
+    // 이 중 가장 작은 점을 첫 번째 걸음이라 가정한다.
+    /*
+    struct Point {
+        int bufListIdx;
+        int inflListIdx;
+    };
+    struct Point tripleMin[3];
+    struct Point mmin; // 세 점 중 vnorm이 가장 작은 점
+    curIdx = 0;
+    i = 0;
+    while (curIdx < 3) {
+        if (inflList[i].status == '-') {
+            tripleMin[curIdx].inflListIdx = i;
+            tripleMin[curIdx].bufListIdx = inflList[i].idx;
+            curIdx++;
+        }
+        i++;
+    }
+
+    for (i = 0; i < 3; i++) {
+        if (bufList[mmin.bufListIdx].vnorm > bufList[tripleMin[i].bufListIdx].vnorm)
+            mmin = tripleMin[i];
+        printf("bufList[%d]: %f\n", tripleMin[i].bufListIdx, bufList[tripleMin[i].bufListIdx].vnorm);
+    }
+    printf("[%d]: %f\t%f\n", mmin.bufListIdx, bufList[mmin.bufListIdx].time, bufList[mmin.bufListIdx].vnorm); */
+
+
+    /* 극값 목록 출력 */
+    /*     
+    printf("time\tlocal max\tlocal min\tavg(lmax)\tavg(lmin)\n");
+    for (i = 0; i < inflCnt; i++) {
+        curIdx = inflList[i].idx;
+        if (inflList[i].status == '+') {
+            printf("%f\t%f\t\t%f\t%f\n", bufList[curIdx].time, bufList[curIdx].vnorm, maxAvg, minAvg);
+        }
+        else {
+            printf("%f\t\t%f\t%f\t%f\n", bufList[curIdx].time, bufList[curIdx].vnorm, maxAvg, minAvg);
+        }
+    }
+    printf("> 극값 개수: %d\n", inflCnt);
+    printf("> 극대: %d\t극소: %d\n", maxCnt, minCnt);
+    printf("> 극대 평균: %f\t극소 평균: %f\n", maxAvg, minAvg);
+    */  
+
+    // int maxIdx = getMaxFromList(bufList, inflList, inflCnt);
+    // int minIdx = getMinFromList(bufList, inflList, inflCnt);
+    // printf("maxCnt: %d\tmaxIdx: %d\tmax: %f\n", maxCnt, maxIdx, bufList[maxIdx].vnorm);
+    // printf("minCnt: %d\tminIdx: %d\tmin: %f\n", minCnt, minIdx, bufList[minIdx].vnorm);
+
+
+    //printf("listSize: %d\n", listSize);
+
+    free(diffList);
+    free(inflDiffTbl);
+    free(inflList);
     return 0;
 }
