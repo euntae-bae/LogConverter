@@ -238,12 +238,34 @@ int main(int argc, char **argv)
     //printf("small diff mean: %f\n", sdiffMean);
     //printf("large diff mean: %f\n", ldiffMean);
 
+    /* 걸음 수 계수 */
     stepcnt = 0;
-    for (i = 0; i < diffCnt; i++) {
+    // 임계치 thMax, thMin 정의 (평균으로부터 n%)
+    const float ratioMax = 0.2f;  // 20%
+    const float ratioMin = 0.5f;  // 50%
+    const float thMax = ldiffMean * (1.0f - ratioMax); // 정점(Peak, Crest)의 상위 평균에서 30%를 뺀 값
+    const float thMin = sdiffMean * (1.0f + ratioMin); // 골(Trough)의 하위 평균에서 30%를 더한 값
+    printf("large diff mean: %f, small diff mean: %f\n", ldiffMean, sdiffMean);
+    printf("thMax: %f, thMin: %f\n", thMax, thMin);
+    for (i = 0; i < inflCnt; i++) {
+        curIdx = inflList[i].idx;
+        printf("[%c%d] %f: %f\n", inflList[i].status, inflList[i].idx, bufList[curIdx].time, bufList[curIdx].vnorm);
+        if (inflList[i].status == '+' && bufList[curIdx].vnorm >= thMax && (i + 1) < inflCnt) { // 정점과 임계치 조건 검사 
+            curIdx = inflList[i + 1].idx;
+            if (inflList[i + 1].status == '-' && bufList[curIdx].vnorm <= thMin) { // 골과 임계치 조건 검사
+                stepcnt++;
+            }
+            // if (inflList[i + 1].status == '-')
+            //     stepcnt++;
+        }
+    }
+    /*for (i = 0; i < diffCnt; i++) {
         if (diffList[i] <= ldiffMean * 1.3f && diffList[i] >= ldiffMean * 0.7f) {
             stepcnt++;
         }
-    }
+    } */ 
+
+
     printf("stepcnt: %d\n\n", stepcnt * 2);
 
     /* 첫 세 극소값을 추출한다. */
