@@ -17,4 +17,4 @@ all: lconv1 lconv5 stepcnt
 
 clean:
 	rm lconv?
-	rm stepcnt
+	rm stepcnt*
