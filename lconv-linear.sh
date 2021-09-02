@@ -7,7 +7,7 @@ logDir="data/210812"
 winList=(25) # (5 10 25 50)
 programName="lconv5"
 
-echo "lconv-linear front-end for lconv4d"
+echo "lconv-linear front-end for ${programName}"
 #printf "로그파일이 저장된 디렉토리를 입력하세요: "
 #read logDir
 printf "출력 파일을 저장할 디렉토리 이름을 입력하세요: "
