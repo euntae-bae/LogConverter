@@ -140,7 +140,7 @@ int main(int argc, char **argv)
     int curIdx = 0;
     int listSize = 0;
     float elapsedTime;
-    WinEntry curEntry;
+    //WinEntry curEntry;
 
     fgets(buf, BUF_SIZE, fin); // 첫 줄은 읽어서 버린다.
     while (!feof(fin)) {
@@ -200,7 +200,11 @@ int main(int argc, char **argv)
     startPoint = (inflList[0].status == '+') ? 0 : 1;
     for (i = startPoint; (i + 1) < inflCnt; i += 2) {
         inflDiffTbl[i] -= inflDiffTbl[i + 1];
-        diffCnt++;
+        //diffCnt++;
+    }
+    for (i = 0; i < inflCnt; i++) {
+        if (inflList[i].status == '+')
+            diffCnt++;
     }
     // printf("inflDiffTbl:\n");
     // printf("[s idx] vnorm\t\tvnormDiff\n");
@@ -231,8 +235,8 @@ int main(int argc, char **argv)
     }
     sdiffMean /= DIFF_MEAN_LIST_SIZE;
     ldiffMean /= DIFF_MEAN_LIST_SIZE;
-    printf("small diff mean: %f\n", sdiffMean);
-    printf("large diff mean: %f\n", ldiffMean);
+    //printf("small diff mean: %f\n", sdiffMean);
+    //printf("large diff mean: %f\n", ldiffMean);
 
     stepcnt = 0;
     for (i = 0; i < diffCnt; i++) {
@@ -240,7 +244,7 @@ int main(int argc, char **argv)
             stepcnt++;
         }
     }
-    printf("stepcnt: %d\n", stepcnt);
+    printf("stepcnt: %d\n\n", stepcnt * 2);
 
     /* 첫 세 극소값을 추출한다. */
     // 이 중 가장 작은 점을 첫 번째 걸음이라 가정한다.

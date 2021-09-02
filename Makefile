@@ -10,9 +10,11 @@ test: bufTest.c vector3.c vector3.h
 stepcnt: stepcnt.c
 	gcc -o stepcnt stepcnt.c
 
+stepcnt-debug: stepcnt.c
+	gcc -g -W -Wall -o stepcnt-dbg stepcnt.c
+
 all: lconv1 lconv5 stepcnt
 
 clean:
-	# rm lconv?
-	rm lconv?.exe
-	rm stepcnt.exe
+	rm lconv?
+	rm stepcnt

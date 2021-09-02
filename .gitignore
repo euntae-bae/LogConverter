@@ -3,3 +3,4 @@ out*/
 *.txt
 lconv?
 stepcnt
+stepcnt-dbg
