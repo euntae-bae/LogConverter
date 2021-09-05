@@ -36,8 +36,8 @@ int main(int argc, char *argv[])
 		fgets(buf, BUF_SIZE, fin);
 		if (isspace(*buf) || *buf == '[')
 			continue;
-		fprintf(fout, "%.2lf\t%s", timeCnt, buf);
 		timeCnt += 0.02;
+		fprintf(fout, "%.2lf\t%s", timeCnt, buf);
 	}
 	fclose(fin);
 	fclose(fout);
