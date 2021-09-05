@@ -13,8 +13,8 @@ test: bufTest.c vector3.c vector3.h
 stepcnt: stepcnt.c
 	gcc -o stepcnt stepcnt.c
 
-stepcnt-debug: stepcnt.c
-	gcc -g -W -Wall -o stepcnt-dbg stepcnt.c
+stepcnt-dbg: stepcnt.c
+	gcc -D _DEBUG -g -W -Wall -o stepcnt-dbg stepcnt.c
 
 all: lconv1 lconv6 stepcnt
 

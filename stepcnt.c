@@ -133,8 +133,10 @@ int main(int argc, char **argv)
         return -1;
     }
 
+#ifdef _DEBUG
     if (argc >= 2)
         printf("실험 회차: %s\n", argv[1]);
+#endif 
 
     /* pass-1 */
     int curIdx = 0;
@@ -245,11 +247,17 @@ int main(int argc, char **argv)
     const float ratioMin = 0.5f;  // 50%
     const float thMax = ldiffMean * (1.0f - ratioMax); // 정점(Peak, Crest)의 상위 평균에서 30%를 뺀 값
     const float thMin = sdiffMean * (1.0f + ratioMin); // 골(Trough)의 하위 평균에서 30%를 더한 값
+    
+#ifdef _DEBUG
     printf("large diff mean: %f, small diff mean: %f\n", ldiffMean, sdiffMean);
     printf("thMax: %f, thMin: %f\n", thMax, thMin);
+#endif
+
     for (i = 0; i < inflCnt; i++) {
         curIdx = inflList[i].idx;
+#ifdef _DEBUG
         printf("[%c%d] %f: %f\n", inflList[i].status, inflList[i].idx, bufList[curIdx].time, bufList[curIdx].vnorm);
+#endif
         if (inflList[i].status == '+' && bufList[curIdx].vnorm >= thMax && (i + 1) < inflCnt) { // 정점과 임계치 조건 검사 
             curIdx = inflList[i + 1].idx;
             if (inflList[i + 1].status == '-' && bufList[curIdx].vnorm <= thMin) { // 골과 임계치 조건 검사
@@ -265,9 +273,11 @@ int main(int argc, char **argv)
         }
     } */ 
 
-
+#ifdef _DEBUG
     printf("stepcnt: %d\n\n", stepcnt * 2);
-
+#else
+    printf("%d", stepcnt * 2);
+#endif
     /* 첫 세 극소값을 추출한다. */
     // 이 중 가장 작은 점을 첫 번째 걸음이라 가정한다.
     /*
