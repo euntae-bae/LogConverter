@@ -3,7 +3,7 @@ readFile="sensor-svm.txt"
 outFile="sensor-step.txt"
 
 echo "stepcnt front-end"
-printf "디렉토리를 입력하세요: "
+printf "SVM 파일이 저장된 디렉토리를 입력하세요: "
 read readDir
 
 if [ ! -e $readDir ]; then

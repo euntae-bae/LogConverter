@@ -13,6 +13,9 @@ read outDir
 dirCnt=0
 # 로그 파일 폴더 순회: 폴더 단위로 실행
 for i in ${logDir}/*; do
+    if [ ! -d $i ]; then
+        continue
+    fi
     logSubDir=$(basename ${i}) #: $i: data/2108/001, data/2108/002, ... 
     echo "[${logSubDir}]" # 000, 001, 002, ...
 
