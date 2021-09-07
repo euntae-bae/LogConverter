@@ -110,6 +110,10 @@ void bubble_sortf(float *list, int len) {
     }
 }
 
+void usage(void) {
+    fprintf(stderr, "usage: stepcnt [<file-info>] [<filename>]\n");
+}
+
 int main(int argc, char **argv)
 {
     FILE *fin = NULL;
@@ -119,7 +123,7 @@ int main(int argc, char **argv)
     //puts("# step counter");
 
     if (argc > 3) {
-        fprintf(stderr, "usage: stepcnt [<file-info>] [<filename>]\n");
+        usage();
         return -1;
     }
 
@@ -130,6 +134,7 @@ int main(int argc, char **argv)
     fin = fopen(finName, "rt");
     if (!fin) {
         fprintf(stderr, "E: failed to open file %s\n", DEFAULT_READ_FILE_NAME);
+        usage();
         return -1;
     }
 
@@ -307,7 +312,7 @@ int main(int argc, char **argv)
 
 
     /* 극값 목록 출력 */
-    /*     
+#ifdef _DEBUG
     printf("time\tlocal max\tlocal min\tavg(lmax)\tavg(lmin)\n");
     for (i = 0; i < inflCnt; i++) {
         curIdx = inflList[i].idx;
@@ -321,7 +326,7 @@ int main(int argc, char **argv)
     printf("> 극값 개수: %d\n", inflCnt);
     printf("> 극대: %d\t극소: %d\n", maxCnt, minCnt);
     printf("> 극대 평균: %f\t극소 평균: %f\n", maxAvg, minAvg);
-    */  
+#endif
 
     // int maxIdx = getMaxFromList(bufList, inflList, inflCnt);
     // int minIdx = getMinFromList(bufList, inflList, inflCnt);
