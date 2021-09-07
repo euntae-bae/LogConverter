@@ -16,7 +16,7 @@ stepcnt: stepcnt.c
 stepcnt-dbg: stepcnt.c
 	gcc -D _DEBUG -g -W -Wall -o stepcnt-dbg stepcnt.c
 
-all: lconv1 lconv6 stepcnt
+all: lconv1 lconv5 lconv6 stepcnt
 
 clean:
 	rm lconv?

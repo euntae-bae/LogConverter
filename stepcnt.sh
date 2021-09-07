@@ -12,6 +12,7 @@ if [ ! -e $readDir ]; then
 fi
 
 fileCnt=0
+printf "실험회차\t걸음수\n" >> $outFile
 for i in ${readDir}/*; do
     if [ -d $i ]; then
         echo $i
@@ -19,7 +20,9 @@ for i in ${readDir}/*; do
     else
         continue
     fi
-    ./stepcnt $(basename $i) >> $outFile
+    printf "$(basename $i)\t" >> $outFile
+    ./stepcnt $(basename $i) $readFile >> $outFile
+    echo >> $outFile
     let fileCnt=$fileCnt+1
 done
 
