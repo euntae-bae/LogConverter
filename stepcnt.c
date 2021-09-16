@@ -15,6 +15,13 @@
 #define UNIT_TIME               0.02
 #define DEFAULT_LIST_SIZE       2000
 
+#define TH_FLAG_L1 1 << 0
+#define TH_FLAG_L2 1 << 1
+#define TH_FLAG_U1 1 << 2
+#define TH_FLAG_U2 1 << 3
+#define TH_FLAG_LO  (TH_FLAG_L1 | TH_FLAG_L2)
+#define TH_FLAG_UP  (TH_FLAG_U1 | TH_FLAG_U2)
+
 #define TRUE    1
 #define FALSE   0
 
@@ -24,6 +31,7 @@
 // 최대: global maximal, 최소: global minimal
 // 파장: wave length
 // 주기: period
+// 골: trough(valley), 마루: crest
 
 typedef struct WinEntry {
     float time;
@@ -57,13 +65,25 @@ typedef struct PeakBufferEntry {
     float svm;
 } PeakBufferEntry;
 
-#define PEAK_BUFFER_SIZE    10
+#define PEAK_BUFFER_SIZE    50
 typedef struct PeakBuffer {
     int upperIdx;
     int lowerIdx;
     PeakBufferEntry upper[PEAK_BUFFER_SIZE];
     PeakBufferEntry lower[PEAK_BUFFER_SIZE];
 } PeakBuffer;
+
+bool th_flag_is_on(unsigned char thFlag, unsigned char f) {
+    return (thFlag & f) == f;
+}
+
+void th_flag_on(unsigned char *thFlag, unsigned char f) {
+    *thFlag |= f;
+}
+
+void th_flag_off(unsigned char *thFlag, unsigned char f) {
+    *thFlag &= ~f;
+}
 
 void peak_buffer_init(PeakBuffer *buf) {
     buf->upperIdx = -1;
@@ -434,6 +454,7 @@ int main(int argc, char **argv)
     int maxCnt = 0, minCnt = 0;
     float maxSum = 0.0f, minSum = 0.0f;
     float maxAvg, minAvg;
+
     for (i = 1; i < listSize; i++) {
 #ifdef _SVM_MODE
         ret = svm_isInflect(bufList, i);
@@ -542,7 +563,9 @@ int main(int argc, char **argv)
     printf("극소점의 하위 %d개 항목의 평균: %f\n", AVG_MIN_CNT, inflLowerMinAvg);
 #endif
 
-    /* 초기 임계값 설정 */
+    /* 적응형 임계값을 적용하여 임계값을 만족하는 극점 추출 */
+    
+    // 초기 임계값 설정
     const float INIT_TH_RATIO = 0.7f;
     const float INIT_UPPER_TH = inflUpperMaxAvg * INIT_TH_RATIO; // -30%
     const float INIT_LOWER_TH = inflMidMinAvg * (2.0f - INIT_TH_RATIO); // +30%
@@ -559,8 +582,21 @@ int main(int argc, char **argv)
     printf("upperTh: %f, lowerTh: %f\n", upperTh, lowerTh);
 #endif 
 
-    // lowerTh와 upperTh를 만족하는 점들의 리스트를 만든다.
-    // TODO: 적응형 임계값 계산
+    PeakBuffer pbuf;
+    PeakBufferEntry pe;
+    peak_buffer_init(&pbuf);
+    //int preMinIdx = -1, curMinIdx = -1;
+    
+    // 골(trough)과 마루의 값을 얻었는지를 나타내는 상태 플래그
+    // TH_FLAG_L1, TH_FLAG_L2, TH_FLAG_U1, TH_FLAG_U2
+    unsigned char thFlag = 0x00;
+
+    char prevStatus, curStatus;
+    float m1, m2;
+    float p1, p2;
+    prevStatus = '0';
+
+    /* 임계값을 만족하는 극점들의 리스트를 만든다. */
     for (i = 0; i < inflCnt; i++) {
         InflectPoint curPt = inflList[i];
         float curSVM = bufList[curPt.idx].vnorm;
@@ -569,15 +605,111 @@ int main(int argc, char **argv)
             thInfoList[thInfoCnt].inflIdx = i;
             thInfoList[thInfoCnt].bufIdx = curPt.idx;
             thInfoList[thInfoCnt].svm = bufList[curPt.idx].vnorm;
+
             if (curSVM >= upperTh)
                 thInfoList[thInfoCnt].thStatus = '+';
             else if (curSVM <= lowerTh)
                 thInfoList[thInfoCnt].thStatus = '-';
+
+            // pbuf에 삽입될 새로운 원소 pe의 정보를 채운다.
+            pe.thStatus = thInfoList[thInfoCnt].thStatus;
+            pe.bufIdx = thInfoList[thInfoCnt].bufIdx;
+            pe.svm = thInfoList[thInfoCnt].svm;
+
+            if (prevStatus == '0')
+                prevStatus = thInfoList[thInfoCnt].thStatus;
+            curStatus = thInfoList[thInfoCnt].thStatus;
+
+            // 이전 상태와 현재 상태가 다르면 peak buffer에 저장된 평균값을 m1, m2 또는 p1, p2에 저장하고 버퍼를 비운다.
+            if (prevStatus != curStatus) {
+                if (curStatus == '+') { // 이전에 골이었다가 마루가 나오는 경우
+                    float minAvg = peak_lower_avg(&pbuf); // 점들의 평균을 구한다.
+                    peak_lower_clear(&pbuf); // peak 버퍼의 lower를 비운다.
+                    peak_upper_append(&pbuf, pe);
+                    if (th_flag_is_on(thFlag, TH_FLAG_L1)) { // TH_FLAG_L1 on
+                        m2 = minAvg;
+                        th_flag_on(&thFlag, TH_FLAG_L2);
+                    }
+                    else {
+                        m1 = minAvg;
+                        th_flag_on(&thFlag, TH_FLAG_L1);
+                    }
+                }
+                else {
+                    float maxAvg = peak_upper_avg(&pbuf);
+                    peak_upper_clear(&pbuf);
+                    peak_lower_append(&pbuf, pe);
+                    if (th_flag_is_on(thFlag, TH_FLAG_U1)) { // TH_FLAG_U1 on
+                        p2 = maxAvg;
+                        th_flag_on(&thFlag, TH_FLAG_U2);
+                    }
+                    else { // TH_FLAG_U1 off
+                        p1 = maxAvg;
+                        th_flag_on(&thFlag, TH_FLAG_U1);
+                    }
+                }
+            }
+            // 이전 상태와 현재 상태가 같으면 peak buffer에 점에 대한 정보를 채운다(append).
+            else {
+                if (curStatus == '+') {
+                    peak_upper_append(&pbuf, pe);
+                }
+                else {
+                    peak_lower_append(&pbuf, pe);
+                }
+            }
+      
+#ifdef _DEBUG
+            printf("\n# %c%03d/SVM:%f ########################################\n", pe.thStatus, pe.bufIdx, pe.svm);
+            printf("lowerTh: %f, upperTh: %f\n", lowerTh, upperTh);
+            printf("m1: ");
+            if (th_flag_is_on(thFlag, TH_FLAG_L1))
+                printf("%f, ", m1);
+            else
+                printf("(NULL), ");
+            printf("m2: ");
+            if (th_flag_is_on(thFlag, TH_FLAG_L2))
+                printf("%f\n", m2);
+            else
+                printf("(NULL)\n");
+            printf("p1: ");
+            if (th_flag_is_on(thFlag, TH_FLAG_U1))
+                printf("%f, ", p1);
+            else
+                printf("(NULL), ");
+            printf("p2: ");
+            if (th_flag_is_on(thFlag, TH_FLAG_U2))
+                printf("%f\n", p2);
+            else
+                printf("(NULL)\n");
+
+            peak_buffer_dump(&pbuf);
+#endif
+
+            // 임계값 갱신
+            if (th_flag_is_on(thFlag, TH_FLAG_LO)) {
+                lowerTh = (m1 + m2) / 2.0f;
+                lowerTh *= 2.3f;
+                th_flag_off(&thFlag, TH_FLAG_LO);
+#ifdef _DEBUG
+                printf(">> new lowerTh: %f\n", lowerTh);
+#endif
+            }
+            if (th_flag_is_on(thFlag, TH_FLAG_UP)) {
+                upperTh = (p1 + p2) / 2.0f;
+                upperTh *= 0.85f;
+                th_flag_off(&thFlag, TH_FLAG_UP);
+#ifdef _DEBUG
+                printf(">> new upperTh: %f\n", upperTh);
+#endif
+            }
+
+            prevStatus = curStatus;
             thInfoCnt++;
         }
     }
 
-    // lowerTh 밑에 있는 점들의 리스트를 만든다.
+    /* lowerTh 밑에 있는 점들의 리스트를 만든다. */
     // lowerTh의 값이 정확할수록 lowerIdxList도 정확하게 나온다.
     int *lowerIdxList = (int*)malloc(sizeof(int) * thInfoCnt);
     int *lowerIdxDiffTbl = NULL;
@@ -598,7 +730,7 @@ int main(int argc, char **argv)
     }
 #endif
 
-    // 점들 사이의 간격을 구한다.
+    /* 점들 사이의 간격을 구한다. */
     float lowerDiffAvg = 0.0f;
     const int LOWER_DIFF_CNT = lowerCnt - 1;
     lowerIdxDiffTbl = (int*)malloc(sizeof(int) * LOWER_DIFF_CNT);
@@ -609,7 +741,7 @@ int main(int argc, char **argv)
 #endif
     }
 
-    // 점들 사이의 간격의 평균인 lowerDiffAvg를 구한다.
+    /* 점들 사이의 간격의 평균인 lowerDiffAvg를 구한다. */
     bubble_sort(lowerIdxDiffTbl, LOWER_DIFF_CNT);
     for (i = 0; i < (LOWER_DIFF_CNT / AVG_RATIO); i++) {
         lowerDiffAvg += (float)lowerIdxDiffTbl[LOWER_DIFF_CNT - 1 - i];
@@ -659,58 +791,6 @@ int main(int argc, char **argv)
     free(inflMinList);
     free(inflList);
     return 0;
-
-
-
-    
-    PeakBuffer peakBuffer;
-    PeakBufferEntry e;
-    peak_buffer_init(&peakBuffer);
-    //int preMinIdx = -1, curMinIdx = -1;
-    unsigned char thFlag = 0x00;
-    #define TH_FLAG_MIN1    1 << 0
-    #define TH_FLAG_MIN2    1 << 1
-    #define TH_FLAG_MAX1    1 << 2
-    #define TH_FLAG_MAX2    1 << 3
-    char prevStatus, curStatus;
-    float m1, m2;
-    float p1, p2;
-    prevStatus = thInfoList[0].thStatus;
-    for (i = 0; i < thInfoCnt; i++) {
-        e.thStatus = thInfoList[i].thStatus;
-        e.bufIdx = thInfoList[i].bufIdx;
-        e.svm = thInfoList[i].svm;
-        printf("%c %03d ###################\n", thInfoList[i].thStatus, i);
-
-        curStatus = thInfoList[i].thStatus;
-        if (prevStatus != curStatus) {
-            if (!peak_upper_empty(&peakBuffer)) {
-                printf(">> upper max: %f\n", peak_upper_max(&peakBuffer));
-                printf(">> upper avg: %f\n", peak_upper_avg(&peakBuffer));
-                peak_upper_clear(&peakBuffer);
-            }
-            if (!peak_lower_emptry(&peakBuffer)) {
-                printf(">> lower min: %f\n", peak_lower_min(&peakBuffer));
-                printf(">> lower avg: %f\n", peak_lower_avg(&peakBuffer));
-                peak_lower_clear(&peakBuffer);
-            }
-        }
-        if (curStatus == '+')
-            peak_upper_append(&peakBuffer, e);
-        else
-            peak_lower_append(&peakBuffer, e);
-
-#ifdef _DEBUG
-        peak_buffer_dump(&peakBuffer);
-        puts("");
-#endif
-        prevStatus = curStatus;
-    }
-
-
-    return 0;
-
-
 
 
     /* 고점(극대)에서 저점(극소)으로 떨어지는 값들을 계산한다. */
