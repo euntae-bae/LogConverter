@@ -12,7 +12,7 @@ if [ ! -e $readDir ]; then
 fi
 
 fileCnt=0
-printf "실험회차\t걸음수\n" >> $outFile
+printf "회차\t걸음수\n" >> $outFile
 for i in ${readDir}/*; do
     if [ -d $i ]; then
         echo $i

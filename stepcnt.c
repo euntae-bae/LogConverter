@@ -11,16 +11,11 @@
     #define PROGRAM_VERSION "WIN MODE"
 #endif
 #define BUF_SIZE                256
-#define START_TIME_CNT          0.5
-#define UNIT_TIME               0.02
+// #define START_TIME_CNT          0.5
+// #define UNIT_TIME               0.02
 #define DEFAULT_LIST_SIZE       2000
 
-#define TH_FLAG_L1 1 << 0
-#define TH_FLAG_L2 1 << 1
-#define TH_FLAG_U1 1 << 2
-#define TH_FLAG_U2 1 << 3
-#define TH_FLAG_LO  (TH_FLAG_L1 | TH_FLAG_L2)
-#define TH_FLAG_UP  (TH_FLAG_U1 | TH_FLAG_U2)
+#define TH_ADAP_PT_SIZE  4
 
 #define TRUE    1
 #define FALSE   0
@@ -59,6 +54,11 @@ typedef struct ThInfo {
     float svm;       // bufList.vnorm
 } ThInfo;
 
+typedef struct WaveInfo {
+    int startIdx;
+    int endIdx;
+} WaveInfo;
+
 typedef struct PeakBufferEntry {
     char thStatus;
     int bufIdx;     // bufList Index
@@ -73,16 +73,45 @@ typedef struct PeakBuffer {
     PeakBufferEntry lower[PEAK_BUFFER_SIZE];
 } PeakBuffer;
 
-bool th_flag_is_on(unsigned char thFlag, unsigned char f) {
-    return (thFlag & f) == f;
+float sumf(float *arr, int len) {
+    int i;
+    float sum = 0;
+    for (i = 0; i < len; i++)
+        sum += arr[i];
+    return sum;
 }
 
-void th_flag_on(unsigned char *thFlag, unsigned char f) {
-    *thFlag |= f;
+float avgf(float *arr, int len) {
+    float sum = sumf(arr, len);
+    return sum / (float)len;
 }
 
-void th_flag_off(unsigned char *thFlag, unsigned char f) {
-    *thFlag &= ~f;
+void th_dump_mpt(float *mpt, int mIdx) {
+    int i;
+    printf("mPt: ");
+    if (mIdx == 0) {
+        printf("(NULL)\n");
+        return;
+    }
+    for (i = 0; i < mIdx; i++)
+        printf("%f ", mpt[i]);
+    if (mIdx >= TH_ADAP_PT_SIZE)
+        printf("$");
+    printf("\n");
+}
+
+void th_dump_ppt(float *ppt, int pIdx) {
+    int i;
+    printf("pPt: ");
+    if (pIdx == 0) {
+        printf("(NULL)\n");
+        return;
+    }
+    for (i = 0; i <pIdx; i++)
+        printf("%f ", ppt[i]);
+    if (pIdx >= TH_ADAP_PT_SIZE)
+        printf("$");
+    printf("\n");
 }
 
 void peak_buffer_init(PeakBuffer *buf) {
@@ -580,6 +609,7 @@ int main(int argc, char **argv)
 #ifdef _DEBUG
     printf("INIT_UPPER_TH: %f, INIT_LOWER_TH: %f\n", INIT_UPPER_TH, INIT_LOWER_TH);
     printf("upperTh: %f, lowerTh: %f\n", upperTh, lowerTh);
+    //return 0;
 #endif 
 
     PeakBuffer pbuf;
@@ -587,14 +617,14 @@ int main(int argc, char **argv)
     peak_buffer_init(&pbuf);
     //int preMinIdx = -1, curMinIdx = -1;
     
-    // 골(trough)과 마루의 값을 얻었는지를 나타내는 상태 플래그
-    // TH_FLAG_L1, TH_FLAG_L2, TH_FLAG_U1, TH_FLAG_U2
-    unsigned char thFlag = 0x00;
-
     char prevStatus, curStatus;
-    float m1, m2;
-    float p1, p2;
+    float mPt[TH_ADAP_PT_SIZE], pPt[TH_ADAP_PT_SIZE];
+    int mIdx = 0, pIdx = 0;
+
+    bool adaptiveThMode = false;
     prevStatus = '0';
+
+    const float ADAP_TH_RATIO = 0.7f;
 
     /* 임계값을 만족하는 극점들의 리스트를 만든다. */
     for (i = 0; i < inflCnt; i++) {
@@ -626,26 +656,17 @@ int main(int argc, char **argv)
                     float minAvg = peak_lower_avg(&pbuf); // 점들의 평균을 구한다.
                     peak_lower_clear(&pbuf); // peak 버퍼의 lower를 비운다.
                     peak_upper_append(&pbuf, pe);
-                    if (th_flag_is_on(thFlag, TH_FLAG_L1)) { // TH_FLAG_L1 on
-                        m2 = minAvg;
-                        th_flag_on(&thFlag, TH_FLAG_L2);
-                    }
-                    else {
-                        m1 = minAvg;
-                        th_flag_on(&thFlag, TH_FLAG_L1);
+
+                    if (mIdx < TH_ADAP_PT_SIZE) {
+                        mPt[mIdx++] = minAvg;
                     }
                 }
                 else {
                     float maxAvg = peak_upper_avg(&pbuf);
                     peak_upper_clear(&pbuf);
                     peak_lower_append(&pbuf, pe);
-                    if (th_flag_is_on(thFlag, TH_FLAG_U1)) { // TH_FLAG_U1 on
-                        p2 = maxAvg;
-                        th_flag_on(&thFlag, TH_FLAG_U2);
-                    }
-                    else { // TH_FLAG_U1 off
-                        p1 = maxAvg;
-                        th_flag_on(&thFlag, TH_FLAG_U1);
+                    if (pIdx < TH_ADAP_PT_SIZE) {
+                        pPt[pIdx++] = maxAvg;
                     }
                 }
             }
@@ -660,45 +681,26 @@ int main(int argc, char **argv)
             }
       
 #ifdef _DEBUG
-            printf("\n# %c%03d/SVM:%f ########################################\n", pe.thStatus, pe.bufIdx, pe.svm);
-            printf("lowerTh: %f, upperTh: %f\n", lowerTh, upperTh);
-            printf("m1: ");
-            if (th_flag_is_on(thFlag, TH_FLAG_L1))
-                printf("%f, ", m1);
-            else
-                printf("(NULL), ");
-            printf("m2: ");
-            if (th_flag_is_on(thFlag, TH_FLAG_L2))
-                printf("%f\n", m2);
-            else
-                printf("(NULL)\n");
-            printf("p1: ");
-            if (th_flag_is_on(thFlag, TH_FLAG_U1))
-                printf("%f, ", p1);
-            else
-                printf("(NULL), ");
-            printf("p2: ");
-            if (th_flag_is_on(thFlag, TH_FLAG_U2))
-                printf("%f\n", p2);
-            else
-                printf("(NULL)\n");
-
-            peak_buffer_dump(&pbuf);
+            if (adaptiveThMode) {
+                printf("\n# %c%03d/SVM:%f ########################################\n", pe.thStatus, pe.bufIdx, pe.svm);
+                printf("lowerTh: %f, upperTh: %f\n", lowerTh, upperTh);
+                th_dump_mpt(mPt, mIdx);
+                th_dump_ppt(pPt, pIdx);
+                peak_buffer_dump(&pbuf);
+            }
 #endif
 
             // 임계값 갱신
-            if (th_flag_is_on(thFlag, TH_FLAG_LO)) {
-                lowerTh = (m1 + m2) / 2.0f;
-                lowerTh *= 2.3f;
-                th_flag_off(&thFlag, TH_FLAG_LO);
+            if (adaptiveThMode && mIdx >= TH_ADAP_PT_SIZE) {
+                lowerTh = avgf(mPt, TH_ADAP_PT_SIZE) * (3.0f - ADAP_TH_RATIO);
+                mIdx = 0;
 #ifdef _DEBUG
                 printf(">> new lowerTh: %f\n", lowerTh);
 #endif
             }
-            if (th_flag_is_on(thFlag, TH_FLAG_UP)) {
-                upperTh = (p1 + p2) / 2.0f;
-                upperTh *= 0.85f;
-                th_flag_off(&thFlag, TH_FLAG_UP);
+            if (adaptiveThMode && pIdx >= TH_ADAP_PT_SIZE) {
+                upperTh = avgf(pPt, TH_ADAP_PT_SIZE) * ADAP_TH_RATIO;
+                pIdx = 0;
 #ifdef _DEBUG
                 printf(">> new upperTh: %f\n", upperTh);
 #endif
@@ -736,23 +738,34 @@ int main(int argc, char **argv)
     lowerIdxDiffTbl = (int*)malloc(sizeof(int) * LOWER_DIFF_CNT);
     for (i = 0; i < LOWER_DIFF_CNT; i++) {
         lowerIdxDiffTbl[i] = -(lowerIdxList[i] - lowerIdxList[i + 1]);
-#ifdef _DEBUG
-        printf("lowerIdxDiffTbl[%d]: %d\n", i, lowerIdxDiffTbl[i]);
-#endif
     }
 
     /* 점들 사이의 간격의 평균인 lowerDiffAvg를 구한다. */
+    // 간격을 오름차순으로 정렬
     bubble_sort(lowerIdxDiffTbl, LOWER_DIFF_CNT);
-    for (i = 0; i < (LOWER_DIFF_CNT / AVG_RATIO); i++) {
-        lowerDiffAvg += (float)lowerIdxDiffTbl[LOWER_DIFF_CNT - 1 - i];
 #ifdef _DEBUG
-        printf("lowerIdxDiffTbl[%d]: %d\n", i, lowerIdxDiffTbl[i]);
+    puts("");
+    for (i = 0; i < LOWER_DIFF_CNT; i++) {
+        //printf("lowerIdxDiffTbl[%d]: %d\n", i, lowerIdxDiffTbl[i]);
+        printf("%d\n", lowerIdxDiffTbl[i]);
+    }
+    puts("");
+#endif
+
+    for (i = 0; i < (LOWER_DIFF_CNT / AVG_RATIO); i++) {
+        int idx = LOWER_DIFF_CNT - 1 - i; // 간격의 상위 평균
+        //int idx = ((LOWER_DIFF_CNT - 1) / 2) + i + 5; // 간격의 중위 평균
+        //int idx = LOWER_DIFF_CNT - 4 - i; // 간격의 상위 평균
+        lowerDiffAvg += (float)lowerIdxDiffTbl[idx];
+#ifdef _DEBUG
+        printf("lowerIdxDiffTbl[%d]: %d\n", idx, lowerIdxDiffTbl[idx]);
 #endif
     }
+
     lowerDiffAvg /= (float)i;
 
     // 조건 검사를 위해 lowerDiffAvg에 어느정도의 오차범위를 적용한 lowerDiffBound를 계산
-    float lowerDiffBound = (float)lowerDiffAvg * 0.7f;
+    //float lowerDiffBound = (float)lowerDiffAvg * 0.7f;
 
     // 평균 간격을 기반으로 걸음수를 계산한다.
     stepcnt = 0;
@@ -762,11 +775,16 @@ int main(int argc, char **argv)
     // }
     // stepcnt *= 2;
 
+#ifdef _DEBUG
+    printf("lowerDiffAvg: %f\n", lowerDiffAvg);
+#endif
+
     float stepcntTmp = (float)listSize / lowerDiffAvg;
     stepcntTmp *= 2;
     stepcnt = (int)stepcntTmp;
 
     /* 걸음수 보완하기 */
+    /*
     // (1). 첫 번째 골이 등장한 시점과 평균 간격을 비교하여 부족한 걸음수를 보충한다.
     float startTimeStep = (float)lowerIdxList[0] / (lowerDiffAvg / 2.0f);
     stepcnt += (int)startTimeStep;
@@ -779,11 +797,27 @@ int main(int argc, char **argv)
     float endTimeStep = endTimeDiff / (lowerDiffAvg / 2.0f);
 
     stepcnt += (int)endTimeStep;
+     */ 
+    
+    float startIdx = (float)lowerIdxList[0];
+    float endIdxDiff = listSize - lowerIdxList[lowerCnt - 1];
+    float addSteps = (startIdx + endIdxDiff) / (lowerDiffAvg / 2);
+    stepcnt += addSteps;
 
-    printf("%d", stepcnt);
+#ifdef _DEBUG
+    printf("addSteps: %d\n", addSteps);
+#endif
+
+    /* 결과 값 출력 */
+    //printf("%d\t%f\t%d\t%f", stepcnt, lowerDiffAvg, listSize, ((float)listSize / lowerDiffAvg) * 2);
+    //printf("%d\t%f\t%f\t%d", listSize, lowerDiffAvg, stepcntTmp, stepcnt);
     //printf("%d %f", listSize, lowerDiffAvg);
-    //printf(" %d", (int)stepcntTmp);
+    const float TIME_UNIT = 0.1f;
+    //printf("%d\t%f\t%f\t%f\t%f", stepcnt, lowerDiffAvg, lowerDiffAvg * TIME_UNIT, listSize * TIME_UNIT, INIT_LOWER_TH);
+    printf("%d\t%f", stepcnt, addSteps);
 
+    //printf("%d", stepcnt);
+    
     free(lowerIdxDiffTbl);
     free(lowerIdxList);
     free(thInfoList);
