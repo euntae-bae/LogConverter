@@ -73,6 +73,19 @@ typedef struct PeakBuffer {
     PeakBufferEntry lower[PEAK_BUFFER_SIZE];
 } PeakBuffer;
 
+int sumi(int *arr, int len) {
+    int i;
+    int sum = 0;
+    for (i = 0; i < len; i++)
+        sum += arr[i];
+    return sum;
+}
+
+float avgi(int *arr, int len) {
+    int sum = sumi(arr, len);
+    return (float)sum / len;
+}
+
 float sumf(float *arr, int len) {
     int i;
     float sum = 0;
@@ -84,6 +97,16 @@ float sumf(float *arr, int len) {
 float avgf(float *arr, int len) {
     float sum = sumf(arr, len);
     return sum / (float)len;
+}
+
+void displayDiffMap(int *diffMap, int len) {
+    int i, j;
+    for (i = 0; i <len; i++) {
+        printf("[%03d]: ", i);
+        for (j = 0; j < diffMap[i]; j++)
+            printf("#");
+        printf("\n");
+    }
 }
 
 void th_dump_mpt(float *mpt, int mIdx) {
@@ -752,30 +775,51 @@ int main(int argc, char **argv)
     puts("");
 #endif
 
-    for (i = 0; i < (LOWER_DIFF_CNT / AVG_RATIO); i++) {
-        int idx = LOWER_DIFF_CNT - 1 - i; // 간격의 상위 평균
+    // 정렬된 간격들로부터 적절한 데이터를 선택하는 통계적 방법이 있을까?
+    int *diffMap = NULL;
+    int diffMapLen = lowerIdxDiffTbl[LOWER_DIFF_CNT - 1] + 1; // 가장 큰 원소 선택
+    diffMap = (int*)malloc(sizeof(int) * diffMapLen);
+    memset(diffMap, 0, sizeof(int) * diffMapLen);
+
+    for (i = 0; i < LOWER_DIFF_CNT; i++) {
+        diffMap[lowerIdxDiffTbl[i]]++;
+    }
+
+#ifdef _DEBUG
+    printf("maxDiff: %d, diffMapLen: %d\n", lowerIdxDiffTbl[LOWER_DIFF_CNT - 1], diffMapLen);
+    displayDiffMap(diffMap, diffMapLen);
+#endif
+
+    /*
+    const int SELECT_RATIO = 6; // 선택하는 데이터: 전체의 1/SELECT_RATIO
+    for (i = 0; i < (LOWER_DIFF_CNT / SELECT_RATIO); i++) {
+        //int idx = LOWER_DIFF_CNT - 1 - i; // 간격의 상위 평균
         //int idx = ((LOWER_DIFF_CNT - 1) / 2) + i + 5; // 간격의 중위 평균
-        //int idx = LOWER_DIFF_CNT - 4 - i; // 간격의 상위 평균
+        int idx = (LOWER_DIFF_CNT * 0.75) + 3 + i;
         lowerDiffAvg += (float)lowerIdxDiffTbl[idx];
 #ifdef _DEBUG
         printf("lowerIdxDiffTbl[%d]: %d\n", idx, lowerIdxDiffTbl[idx]);
 #endif
     }
-
     lowerDiffAvg /= (float)i;
+     */
 
-    // 조건 검사를 위해 lowerDiffAvg에 어느정도의 오차범위를 적용한 lowerDiffBound를 계산
-    //float lowerDiffBound = (float)lowerDiffAvg * 0.7f;
+    int selCnt = 0;
+    for (i = 0; i < LOWER_DIFF_CNT; i++) {
+        int diff = lowerIdxDiffTbl[i];
+        if (diff > 10 && diff < 20) {
+            lowerDiffAvg += (float)diff;
+            selCnt++;
+#ifdef _DEBUG
+            printf("lowerIdxDiffTbl[%d]: %d\n", i, diff);
+#endif
+        }
+    }
 
-    // 평균 간격을 기반으로 걸음수를 계산한다.
-    stepcnt = 0;
-    // for (i = 0; i < lowerCnt; i++) {
-    //     if (lowerIdxDiffTbl[i] >= lowerDiffBound)
-    //         stepcnt++;
-    // }
-    // stepcnt *= 2;
+    lowerDiffAvg /= (float)selCnt;
 
 #ifdef _DEBUG
+    printf("listSize: %f\n", (float)listSize);
     printf("lowerDiffAvg: %f\n", lowerDiffAvg);
 #endif
 
@@ -783,41 +827,27 @@ int main(int argc, char **argv)
     stepcntTmp *= 2;
     stepcnt = (int)stepcntTmp;
 
-    /* 걸음수 보완하기 */
-    /*
-    // (1). 첫 번째 골이 등장한 시점과 평균 간격을 비교하여 부족한 걸음수를 보충한다.
-    float startTimeStep = (float)lowerIdxList[0] / (lowerDiffAvg / 2.0f);
-    stepcnt += (int)startTimeStep;
-    
-    // (2). 마지막 골이 등장한 시점과 평균 간격을 비교하여 부족한 걸음수를 보충한다.
-    // 두 가지 접근 방법:
-    // 1. 마지막 골과 마지막 측정 시점의 차이를 구해서 평균 간격과 비교한다.
-    // 2. 마지막 골 이후에 상승 곡선이 있는지를 확인한다. (upperTh보다 큰 점이 발견되는지)
-    float endTimeDiff = listSize - lowerIdxList[lowerCnt - 1];
-    float endTimeStep = endTimeDiff / (lowerDiffAvg / 2.0f);
-
-    stepcnt += (int)endTimeStep;
-     */ 
-    
+    /* 걸음 수 보정 */
     float startIdx = (float)lowerIdxList[0];
     float endIdxDiff = listSize - lowerIdxList[lowerCnt - 1];
     float addSteps = (startIdx + endIdxDiff) / (lowerDiffAvg / 2);
     stepcnt += addSteps;
 
 #ifdef _DEBUG
-    printf("addSteps: %d\n", addSteps);
+    printf("addSteps: %f\n", addSteps);
 #endif
 
     /* 결과 값 출력 */
+    //const float TIME_UNIT = 0.1f;
     //printf("%d\t%f\t%d\t%f", stepcnt, lowerDiffAvg, listSize, ((float)listSize / lowerDiffAvg) * 2);
     //printf("%d\t%f\t%f\t%d", listSize, lowerDiffAvg, stepcntTmp, stepcnt);
     //printf("%d %f", listSize, lowerDiffAvg);
-    const float TIME_UNIT = 0.1f;
     //printf("%d\t%f\t%f\t%f\t%f", stepcnt, lowerDiffAvg, lowerDiffAvg * TIME_UNIT, listSize * TIME_UNIT, INIT_LOWER_TH);
-    printf("%d\t%f", stepcnt, addSteps);
+    //printf("%d\t%f", stepcnt, addSteps);
 
-    //printf("%d", stepcnt);
+    printf("%d", stepcnt);
     
+    free(diffMap);
     free(lowerIdxDiffTbl);
     free(lowerIdxList);
     free(thInfoList);
