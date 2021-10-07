@@ -1,6 +1,7 @@
 #!/bin/bash
 
-logDir="data/2108"
+#logDir="data/2108"
+logDir="data/211005"
 programName="lconv6"
 outFile="sensor-svm.txt"
 

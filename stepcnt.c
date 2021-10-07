@@ -17,6 +17,8 @@
 
 #define TH_ADAP_PT_SIZE  4
 
+#define DIFF_MAP_MAX_SIZE   5
+
 #define TRUE    1
 #define FALSE   0
 
@@ -54,10 +56,10 @@ typedef struct ThInfo {
     float svm;       // bufList.vnorm
 } ThInfo;
 
-typedef struct WaveInfo {
+typedef struct Trough {
     int startIdx;
     int endIdx;
-} WaveInfo;
+} Trough;
 
 typedef struct PeakBufferEntry {
     char thStatus;
@@ -72,6 +74,11 @@ typedef struct PeakBuffer {
     PeakBufferEntry upper[PEAK_BUFFER_SIZE];
     PeakBufferEntry lower[PEAK_BUFFER_SIZE];
 } PeakBuffer;
+
+typedef struct DiffMapEntry {
+        int idx;
+        int cnt;
+} DiffMapEntry;
 
 int sumi(int *arr, int len) {
     int i;
@@ -423,6 +430,29 @@ void bubble_sortf(float *list, int len) {
     }
 }
 
+void bubble_sort_diffmap(DiffMapEntry *list, int len) {
+    int i, j;
+    DiffMapEntry temp;
+    for (i = 0; i < len; i++) {
+        for (j = 0; j < len - i - 1; j++) {
+            if (list[j].cnt > list[j + 1].cnt) {
+                temp = list[j + 1];
+                list[j + 1] = list[j];
+                list[j] = temp;
+            }
+        }
+    }
+}
+
+int getTrIdx(const Trough *trList, int len, int idx) {
+    int i;
+    for (i = 0; i < len; i++) {
+        if (idx >= trList[i].startIdx && idx <= trList[i].endIdx)
+            return i;
+    }
+    return -1;
+}
+
 void usage(void) {
     fprintf(stderr, "usage: stepcnt [<file-info>] [<filename>]\n");
 }
@@ -734,25 +764,80 @@ int main(int argc, char **argv)
         }
     }
 
+    // 골의 리스트를 만든다.
+    Trough troughList[200];
+    int trCnt = 0;
+
+    prevStatus = curStatus = '+';
+#ifdef _DEBUG
+    printf("troughList:\n");
+#endif
+    for (i = 0; i < listSize; i++) {
+        if (bufList[i].vnorm <= lowerTh) {
+            curStatus = '-';
+        }
+        else {
+            curStatus = '+';
+        }
+
+        // 골 시작
+        if (prevStatus == '+' && curStatus == '-') {
+            troughList[trCnt].startIdx = i;
+        }
+
+        // 골 끝
+        if (prevStatus == '-' && curStatus == '+') {
+            troughList[trCnt].endIdx = i;
+#ifdef _DEBUG
+            printf("[%03d] start: %4d, end: %4d\n", trCnt, troughList[trCnt].startIdx, troughList[trCnt].endIdx);
+            //printf("%.2f\t%f\n", bufList[troughList[trCnt].startIdx].time, bufList[troughList[trCnt].startIdx].vnorm);
+            //printf("%.2f\t%f\n", bufList[troughList[trCnt].endIdx].time, bufList[troughList[trCnt].endIdx].vnorm);
+#endif
+            trCnt++;
+        }
+        prevStatus = curStatus;
+    }
+
     /* lowerTh 밑에 있는 점들의 리스트를 만든다. */
     // lowerTh의 값이 정확할수록 lowerIdxList도 정확하게 나온다.
     int *lowerIdxList = (int*)malloc(sizeof(int) * thInfoCnt);
     int *lowerIdxDiffTbl = NULL;
     int lowerCnt = 0;
 
+    int prevTrIdx, curTrIdx;
+    prevTrIdx = curTrIdx = -1;
+
+
+#ifdef _DEBUG
+    printf("\nthInfoList:\n");
+    for (i = 0; i < thInfoCnt; i++) {
+        if (thInfoList[i].thStatus == '-')
+                printf("%03d: [%c/%c] %d %d %f\n", i, thInfoList[i].thStatus, thInfoList[i].inflStatus, thInfoList[i].inflIdx, thInfoList[i].bufIdx, thInfoList[i].svm);
+    }
+    printf("\n");
+    
+#endif
     for (i = 0; i < thInfoCnt; i++) {
         if (thInfoList[i].thStatus == '-') {
+            // 현재 점이 포함된 골을 찾는다.
+            curTrIdx = getTrIdx(troughList, trCnt, thInfoList[i].bufIdx);
+            if ((curTrIdx != prevTrIdx) || curTrIdx == -1) {
+                lowerIdxList[lowerCnt++] = thInfoList[i].bufIdx;
 #ifdef _DEBUG
-            printf("%03d: [%c/%c] %d %d %f\n", i, thInfoList[i].thStatus, thInfoList[i].inflStatus, thInfoList[i].inflIdx, thInfoList[i].bufIdx, thInfoList[i].svm);
 #endif
-            lowerIdxList[lowerCnt++] = thInfoList[i].bufIdx;
+            }
+            prevTrIdx = curTrIdx;
         }
     }
 
 #ifdef _DEBUG
+    printf("lowerIdxList:\ntime\tsvm\n");
     for (i = 0; i < lowerCnt; i++) {
-        printf("lowerIdxList[%d]: %d\n", i, lowerIdxList[i]);
+        int idx = lowerIdxList[i];
+        //printf("[%d]: %d\n", i, lowerIdxList[i]);
+        printf("[%d] %f\t%f\n", i, bufList[idx].time, bufList[idx].vnorm);
     }
+    printf("\n");
 #endif
 
     /* 점들 사이의 간격을 구한다. */
@@ -763,19 +848,43 @@ int main(int argc, char **argv)
         lowerIdxDiffTbl[i] = -(lowerIdxList[i] - lowerIdxList[i + 1]);
     }
 
+    const int TR_DIFF_CNT = trCnt - 1;
+    int *trDiffTbl = (int*)malloc(sizeof(int) * TR_DIFF_CNT);
+    for (i = 0; i < TR_DIFF_CNT; i++) {
+        trDiffTbl[i] = troughList[i + 1].startIdx - troughList[i].startIdx;
+    }
+
     /* 점들 사이의 간격의 평균인 lowerDiffAvg를 구한다. */
     // 간격을 오름차순으로 정렬
     bubble_sort(lowerIdxDiffTbl, LOWER_DIFF_CNT);
+    bubble_sort(trDiffTbl, TR_DIFF_CNT);
+
+    int lowerIdxDiffSum = sumi(lowerIdxDiffTbl, LOWER_DIFF_CNT);
+    float lowerIdxDiffAvg = (float)lowerIdxDiffSum / (float)LOWER_DIFF_CNT;
+    int trDiffSum = sumi(trDiffTbl, TR_DIFF_CNT);
+    float trDiffAvg = (float)trDiffSum / (float)TR_DIFF_CNT;
+
 #ifdef _DEBUG
     puts("");
+    puts("lowerIdxDiffTbl:");
     for (i = 0; i < LOWER_DIFF_CNT; i++) {
         //printf("lowerIdxDiffTbl[%d]: %d\n", i, lowerIdxDiffTbl[i]);
         printf("%d\n", lowerIdxDiffTbl[i]);
     }
+    printf("> sum: %d\n", lowerIdxDiffSum);
+    printf("> avg: %d\n", (int)lowerIdxDiffAvg);
+    puts("");
+
+    puts("trDiffTbl:");
+    for (i = 0; i < TR_DIFF_CNT; i++) {
+        printf("%d\n", trDiffTbl[i]);
+    }
+    printf("> sum: %d\n", trDiffSum);
+    printf("> avg: %f\n", trDiffAvg);
     puts("");
 #endif
 
-    // 정렬된 간격들로부터 적절한 데이터를 선택하는 통계적 방법이 있을까?
+    /* diffMap: 각 간격의 빈도를 나타내는 테이블 */
     int *diffMap = NULL;
     int diffMapLen = lowerIdxDiffTbl[LOWER_DIFF_CNT - 1] + 1; // 가장 큰 원소 선택
     diffMap = (int*)malloc(sizeof(int) * diffMapLen);
@@ -785,45 +894,95 @@ int main(int argc, char **argv)
         diffMap[lowerIdxDiffTbl[i]]++;
     }
 
+    DiffMapEntry *sortedDiffMap = (DiffMapEntry*)malloc(sizeof(DiffMapEntry) * diffMapLen);
+    memset(sortedDiffMap, 0, sizeof(DiffMapEntry) * diffMapLen);
+    for (i = 0; i < diffMapLen; i++) {
+        sortedDiffMap[i].idx = i;
+        sortedDiffMap[i].cnt = diffMap[i];
+    }
+
+    bubble_sort_diffmap(sortedDiffMap, diffMapLen);
+#ifdef _DEBUG
+    for (i = 0; i < diffMapLen; i++)
+        printf("sortedDiffMap[%d]: %d\n", sortedDiffMap[i].idx, sortedDiffMap[i].cnt);
+#endif
+
+    int diffMapMax[DIFF_MAP_MAX_SIZE] = { 0, };
+    float diffMapMaxAvg = 0.0f;
+    int diffMapMaxCnt = 0;
+
+    diffMapMaxCnt = 0;
+    for (i = 0; i < diffMapLen; i++) {
+        int idx = sortedDiffMap[diffMapLen - 1 - i].idx;
+        if (idx < (int)lowerIdxDiffAvg || idx > (int)(lowerIdxDiffAvg * 2))
+            continue;
+        //printf("idx: %d\n", idx);
+        diffMapMax[diffMapMaxCnt++] = idx;
+        if (diffMapMaxCnt >= DIFF_MAP_MAX_SIZE)
+            break;
+    }
+    //diffMapMaxAvg = avgi(diffMapMax, diffMapMaxCnt);
+    diffMapMaxAvg = 0.0f;
+    int entryCnt = 0;
+    for (i = 0; i < diffMapMaxCnt; i++) {
+        int cnt = diffMap[diffMapMax[i]];
+        diffMapMaxAvg += (float)diffMapMax[i] * cnt;
+        entryCnt += cnt;
+    }
+    diffMapMaxAvg /= entryCnt;
+
 #ifdef _DEBUG
     printf("maxDiff: %d, diffMapLen: %d\n", lowerIdxDiffTbl[LOWER_DIFF_CNT - 1], diffMapLen);
     displayDiffMap(diffMap, diffMapLen);
-#endif
+    puts("");
 
-    /*
-    const int SELECT_RATIO = 6; // 선택하는 데이터: 전체의 1/SELECT_RATIO
-    for (i = 0; i < (LOWER_DIFF_CNT / SELECT_RATIO); i++) {
-        //int idx = LOWER_DIFF_CNT - 1 - i; // 간격의 상위 평균
-        //int idx = ((LOWER_DIFF_CNT - 1) / 2) + i + 5; // 간격의 중위 평균
-        int idx = (LOWER_DIFF_CNT * 0.75) + 3 + i;
-        lowerDiffAvg += (float)lowerIdxDiffTbl[idx];
-#ifdef _DEBUG
-        printf("lowerIdxDiffTbl[%d]: %d\n", idx, lowerIdxDiffTbl[idx]);
-#endif
+    puts("diffMapMax:");
+    for (i = 0; i < diffMapMaxCnt; i++) {
+        printf("[%03d]: %d\n", diffMapMax[i], diffMap[diffMapMax[i]]);
     }
-    lowerDiffAvg /= (float)i;
-     */
+    puts("");
+    printf("diffMapMaxAvg: %f\n", diffMapMaxAvg);
+#endif
 
+    /* lowerIdxDiffTbl로부터 간격의 평균을 취할 데이터를 선택한다. */
+
+    // 앞뒤로 (TRUNC_RATIO * 100)% 만큼 잘라낸다.
+    const float TRUNC_RATIO = 0.3f;
+    int stIdx = LOWER_DIFF_CNT * TRUNC_RATIO;
+    //int stIdx = 0;
+    //int edIdx = LOWER_DIFF_CNT - stIdx;
+    int edIdx = LOWER_DIFF_CNT * (1.0f - TRUNC_RATIO);
     int selCnt = 0;
+    
+    for (i = stIdx; i <= edIdx; i++) {
+        int diff = lowerIdxDiffTbl[i];
+        if (diff < (int)lowerIdxDiffAvg)
+            continue;
+#ifdef _DEBUG
+        printf("lowerIdxDiffTbl[%d]: %d\n", i, lowerIdxDiffTbl[i]);
+#endif
+        lowerDiffAvg += (float)lowerIdxDiffTbl[i];
+        selCnt++;
+    }
+    
+    /*
     for (i = 0; i < LOWER_DIFF_CNT; i++) {
         int diff = lowerIdxDiffTbl[i];
-        if (diff > 10 && diff < 20) {
-            lowerDiffAvg += (float)diff;
-            selCnt++;
+        int diffAvg = (int)lowerIdxDiffAvg;
+        if (diff > diffAvg * 2 || diff < diffAvg)
+            continue;
 #ifdef _DEBUG
-            printf("lowerIdxDiffTbl[%d]: %d\n", i, diff);
+        printf("lowerIdxDiffTbl[%d]: %d\n", i, diff);
 #endif
-        }
-    }
+        lowerDiffAvg += (float)diff;
+        selCnt++;
+    } */
+
 
     lowerDiffAvg /= (float)selCnt;
 
-#ifdef _DEBUG
-    printf("listSize: %f\n", (float)listSize);
-    printf("lowerDiffAvg: %f\n", lowerDiffAvg);
-#endif
-
-    float stepcntTmp = (float)listSize / lowerDiffAvg;
+    //float stepcntTmp = (float)listSize / lowerDiffAvg;
+    float stepcntTmp = (float)listSize / diffMapMaxAvg;
     stepcntTmp *= 2;
     stepcnt = (int)stepcntTmp;
 
@@ -831,11 +990,7 @@ int main(int argc, char **argv)
     float startIdx = (float)lowerIdxList[0];
     float endIdxDiff = listSize - lowerIdxList[lowerCnt - 1];
     float addSteps = (startIdx + endIdxDiff) / (lowerDiffAvg / 2);
-    stepcnt += addSteps;
-
-#ifdef _DEBUG
-    printf("addSteps: %f\n", addSteps);
-#endif
+    stepcnt += (int)addSteps;
 
     /* 결과 값 출력 */
     //const float TIME_UNIT = 0.1f;
@@ -845,162 +1000,41 @@ int main(int argc, char **argv)
     //printf("%d\t%f\t%f\t%f\t%f", stepcnt, lowerDiffAvg, lowerDiffAvg * TIME_UNIT, listSize * TIME_UNIT, INIT_LOWER_TH);
     //printf("%d\t%f", stepcnt, addSteps);
 
+    //printf("%d, %d sec", stepcnt, (int)bufList[listSize - 1].time);
     printf("%d", stepcnt);
+
+    /* troughList를 기반으로 계산 */
+    stIdx = TR_DIFF_CNT * TRUNC_RATIO;
+    edIdx = TR_DIFF_CNT - stIdx;
+    selCnt = 0;
+    for (i = stIdx; i <= edIdx; i++) {
+#ifdef _DEBUG
+        printf("trDiffTbl[%d]: %d\n", i, trDiffTbl[i]);
+#endif
+        lowerDiffAvg += (float)trDiffTbl[i];
+        selCnt++;
+    }
+    lowerDiffAvg /= (float)selCnt;
+    stepcntTmp = (float)listSize / lowerDiffAvg;
+    stepcntTmp *= 2;
+    stepcnt = (int)stepcntTmp;
+
+    startIdx = (float)troughList[0].startIdx;
+    endIdxDiff = listSize - troughList[trCnt - 1].endIdx;
+    addSteps = (startIdx + endIdxDiff) / (lowerDiffAvg / 2);
+    stepcnt += (int)addSteps;
+
+    //printf(" | %d, %d sec", stepcnt, (int)bufList[listSize - 1].time);
     
+
+    /* 동적 할당 데이터 해제 */
+    free(trDiffTbl);
     free(diffMap);
     free(lowerIdxDiffTbl);
     free(lowerIdxList);
     free(thInfoList);
     free(inflMaxList);
     free(inflMinList);
-    free(inflList);
-    return 0;
-
-
-    /* 고점(극대)에서 저점(극소)으로 떨어지는 값들을 계산한다. */
-    // inflDiffTbl: inflList와 같은 인덱스 체계를 공유한다.
-    // diffList: inflDiffTbl로부터 극대에서 극소로 떨어지는 경우의 vnorm delta 값을 추출하여 저장한다. 값을 저장한 후 오름차순으로 정렬하여 사용한다.
-    
-    // TODO: inflDiffTbl을 inflList로 통합; InflectPoint 구조체에 diff 멤버를 추가한다.
-    // (1). 통합할 경우 리스트의 크기는 inflCnt가 아니라 listSize, 즉 모든 점의 개수만큼 할당되므로 메모리가 낭비된다.
-    // (2). 통합한다고 해서 프로그램 코드가 간략해질 것 같지는 않다.
-    // listCnt, inflCnt, diffCnt의 차이점을 잘 구분해둘 것
-    // listCnt: bufList의 길이 (파일로부터 읽어들인 신호의 개수에 해당한다. pass-1에서 결정)
-    // inflCnt: 극값의 개수, 즉 inflList의 길이 (inflList는 listCnt를 기반으로 여유잡아 할당. inflCnt는 이후에 극값을 카운트하여 결정)
-    // diffCnt: diffList의 원소 개수
-
-    // inflCnt: 시간순으로 정렬
-    // diffCnt: 신호 크기순으로 정렬
-    float *inflDiffTbl = (float*)malloc(sizeof(float) * inflCnt);
-    int startPoint;
-    
-    float *diffList = NULL;
-    int diffCnt = 0;
-
-    for (i = 0; i < inflCnt; i++) {
-        inflDiffTbl[i] = bufList[inflList[i].idx].vnorm;
-    }
-    startPoint = (inflList[0].status == '+') ? 0 : 1;
-    for (i = startPoint; (i + 1) < inflCnt; i += 2) {
-        inflDiffTbl[i] -= inflDiffTbl[i + 1];
-        //diffCnt++;
-    }
-    for (i = 0; i < inflCnt; i++) {
-        if (inflList[i].status == '+')
-            diffCnt++;
-    }
-    // printf("inflDiffTbl:\n");
-    // printf("[s idx] vnorm\t\tvnormDiff\n");
-
-    // for (i = 0; i < inflCnt; i++) {
-    //     printf("[%c%04d] %f\t%f\n", inflList[i].status, inflList[i].idx, bufList[inflList[i].idx].vnorm, inflDiffTbl[i]);
-    // }
-    // puts("");
-    diffList = (float*)malloc(sizeof(float) * diffCnt);
-    curIdx = 0;
-    for (i = 0; i < inflCnt; i++) {
-        if (inflList[i].status == '+') {
-            // printf("[%c%04d] %f\t%f\n", inflList[i].status, inflList[i].idx, bufList[inflList[i].idx].vnorm, inflDiffTbl[i]);
-            diffList[curIdx++] = inflDiffTbl[i];
-        }
-    }
-    // printf("> 총 %d개\n\n", i);
-
-    bubble_sortf(diffList, diffCnt);
-
-#ifdef _DEBUG
-    puts("## diffList:");
-    for (i = 0; i < diffCnt; i++)
-        printf("diffList[%d]: %f\n", i, diffList[i]);
-#endif
-
-    const int DIFF_MEAN_LIST_SIZE = diffCnt / 3;    // diffList의 1/3개를 각각의 평균의 기준으로 잡는다.
-    float sdiffMean = 0.0f, ldiffMean = 0.0f;       // 격차가 작은 경우의 평균과 큰 경우의 평균 (그런 두 가지 상태로 나뉘는 경향이 있다)
-    for (i = 0; i < DIFF_MEAN_LIST_SIZE; i++) {
-        sdiffMean += diffList[i];
-        ldiffMean += diffList[diffCnt - 1 - i];
-    }
-    sdiffMean /= DIFF_MEAN_LIST_SIZE;
-    ldiffMean /= DIFF_MEAN_LIST_SIZE;
-
-    /* 걸음 수 계수 */
-    stepcnt = 0;
-    // 임계치 thMax, thMin 정의 (평균으로부터 n%)
-    const float ratioMax = 0.2f;  // 20%
-    const float ratioMin = 0.5f;  // 50%
-    const float thMax = ldiffMean * (1.0f - ratioMax); // 정점(Peak, Crest)의 상위 평균에서 30%를 뺀 값
-    const float thMin = sdiffMean * (1.0f + ratioMin); // 골(Trough)의 하위 평균에서 30%를 더한 값
-    
-#ifdef _DEBUG
-    printf("large diff mean: %f, small diff mean: %f\n", ldiffMean, sdiffMean);
-    printf("thMax: %f, thMin: %f\n", thMax, thMin);
-#endif
-
-    for (i = 0; i < inflCnt; i++) {
-        curIdx = inflList[i].idx;
-#ifdef _DEBUG
-        printf("[%c%d] %f: %f\n", inflList[i].status, inflList[i].idx, bufList[curIdx].time, bufList[curIdx].vnorm);
-#endif
-        if (inflList[i].status == '+' && bufList[curIdx].vnorm >= thMax && (i + 1) < inflCnt) { // 정점과 임계치 조건 검사 
-            curIdx = inflList[i + 1].idx;
-            if (inflList[i + 1].status == '-' && bufList[curIdx].vnorm <= thMin) { // 골과 임계치 조건 검사
-                stepcnt++;
-            }
-            // if (inflList[i + 1].status == '-')
-            //     stepcnt++;
-        }
-    }
-    /*for (i = 0; i < diffCnt; i++) {
-        if (diffList[i] <= ldiffMean * 1.3f && diffList[i] >= ldiffMean * 0.7f) {
-            stepcnt++;
-        }
-    } */ 
-
-#ifdef _DEBUG
-    printf("stepcnt: %d\n\n", stepcnt * 2);
-#else
-    printf("%d", stepcnt * 2);
-#endif
-    /* 첫 세 극소값을 추출한다. */
-    // 이 중 가장 작은 점을 첫 번째 걸음이라 가정한다.
-    /*
-    struct Point {
-        int bufListIdx;
-        int inflListIdx;
-    };
-    struct Point tripleMin[3];
-    struct Point mmin; // 세 점 중 vnorm이 가장 작은 점
-    curIdx = 0;
-    i = 0;
-    while (curIdx < 3) {
-        if (inflList[i].status == '-') {
-            tripleMin[curIdx].inflListIdx = i;
-            tripleMin[curIdx].bufListIdx = inflList[i].idx;
-            curIdx++;
-        }
-        i++;
-    }
-
-    for (i = 0; i < 3; i++) {
-        if (bufList[mmin.bufListIdx].vnorm > bufList[tripleMin[i].bufListIdx].vnorm)
-            mmin = tripleMin[i];
-        printf("bufList[%d]: %f\n", tripleMin[i].bufListIdx, bufList[tripleMin[i].bufListIdx].vnorm);
-    }
-    printf("[%d]: %f\t%f\n", mmin.bufListIdx, bufList[mmin.bufListIdx].time, bufList[mmin.bufListIdx].vnorm); */
-
-
-
-
-    // int maxIdx = getMaxFromList(bufList, inflList, inflCnt);
-    // int minIdx = getMinFromList(bufList, inflList, inflCnt);
-    // printf("maxCnt: %d\tmaxIdx: %d\tmax: %f\n", maxCnt, maxIdx, bufList[maxIdx].vnorm);
-    // printf("minCnt: %d\tminIdx: %d\tmin: %f\n", minCnt, minIdx, bufList[minIdx].vnorm);
-
-
-    //printf("listSize: %d\n", listSize);
-
-    free(diffList);
-    free(inflDiffTbl);
     free(inflList);
     return 0;
 }

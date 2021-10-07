@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#define PROGRAM_VERSION "6"
+#define PROGRAM_VERSION "6f"
+#define FILTER_SIZE 5
 
 double getNorm(double x, double y, double z) {
 	return sqrt((x * x) + (y * y) + (z * z));
@@ -39,15 +40,19 @@ int main(void)
     double blankTime;
     double ax, ay, az;
     double anorm; // SVM
+    int fcnt = 0; // filter counter
 
     while (!feof(fpList[0])) {
         fscanf(fpList[0], "%lf\t%lf\n", &timeCnt, &ax);
         fscanf(fpList[1], "%lf\t%lf\n", &blankTime, &ay);
         fscanf(fpList[2], "%lf\t%lf\n", &blankTime, &az);
         //printf("%.2lf\t%lf\t%lf\t%lf\n", timeCnt, ax, ay, az);
-        
-        anorm = getNorm(ax, ay, ax);
-        fprintf(fpWrite, "%.2lf\t%lf\n", timeCnt, anorm);
+        if ((fcnt % FILTER_SIZE) == 0) {
+            anorm = getNorm(ax, ay, ax);
+            fprintf(fpWrite, "%.2lf\t%lf\n", timeCnt, anorm);
+            //fcnt = 0;
+        }
+        fcnt++;
     }
 
     fclose(fpWrite);
